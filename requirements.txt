@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+stripe
+boto3
+librosa
+python-dotenv
+aioredis

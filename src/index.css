@@ -1,0 +1,110 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Permanent+Marker&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-logo: "Permanent Marker", "Inter", sans-serif;
+  --color-bg-dark: #050608;
+  --color-panel-bg: #10111a;
+  --color-accent-green: #a855f7; /* Violet matching screenshot! Wait, let's verify if the theme is purple or green in screenshot. */
+  --color-accent-green-hover: #c084fc;
+}
+
+/* Custom design animations */
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 12s linear infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scaleUp {
+  animation: scaleUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Wave visualizer bounce bars */
+@keyframes bounceShort1 {
+  0%, 100% { height: 4px; }
+  50% { height: 10px; }
+}
+@keyframes bounceShort2 {
+  0%, 100% { height: 6px; }
+  50% { height: 14px; }
+}
+@keyframes bounceShort3 {
+  0%, 100% { height: 3px; }
+  50% { height: 8px; }
+}
+
+.animate-bounce-1 {
+  animation: bounceShort1 0.7s infinite ease-in-out;
+}
+.animate-bounce-2 {
+  animation: bounceShort2 0.9s infinite ease-in-out;
+}
+.animate-bounce-3 {
+  animation: bounceShort3 0.8s infinite  ease-in-out;
+}
+
+/* Custom scrollbar helpers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

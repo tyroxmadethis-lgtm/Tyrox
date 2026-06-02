@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VibeVault // Premium Beat Store</title>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://googletagmanager.com"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      // Initializes automatic session configuration tracking
+      gtag('config', 'G-YOUR_MEASUREMENT_ID');
+
+      // 1. TRACK REAL-TIME AUDIO PLAYS (Engagement metric)
+      function logBeatPreview(beatName, licenseType) {
+          gtag('event', 'play_preview', {
+              'beat_name': beatName,
+              'license_tier': licenseType || 'Free',
+              'value': 0.0
+          });
+      }
+
+      // 2. TRACK INSTANT DOWNLOADING ACTIVATION
+      function logFreeDownload(beatName) {
+          gtag('event', 'download_beat', {
+              'beat_name': beatName,
+              'file_format': 'MP3_Tagged'
+          });
+      }
+
+      // Expose to window for global access
+      window.logBeatPreview = logBeatPreview;
+      window.logFreeDownload = logFreeDownload;
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
