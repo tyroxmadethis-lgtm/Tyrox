@@ -52,6 +52,23 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
   const [downloadEmail, setDownloadEmail] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
+  const [bannerImg, setBannerImg] = useState(() => {
+    return localStorage.getItem('tyrox_banner_img') || "/banner.jpg";
+  });
+
+  useEffect(() => {
+    const handleBannerUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setBannerImg(customEvent.detail);
+      }
+    };
+    window.addEventListener('tyrox-banner-updated', handleBannerUpdate);
+    return () => {
+      window.removeEventListener('tyrox-banner-updated', handleBannerUpdate);
+    };
+  }, []);
+
   const handleFreeDownloadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!downloadTrack || !downloadEmail.trim() || !downloadEmail.includes('@')) {
@@ -227,7 +244,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
       <div 
         className="relative rounded-2xl overflow-hidden h-44 sm:h-60 md:h-72 lg:h-96 w-full shadow-2xl border border-neutral-900/80 flex items-end"
         style={{
-          backgroundImage: `url('/src/assets/images/tyrox_banner_1780366726227.png')`,
+          backgroundImage: `url('${bannerImg}')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}

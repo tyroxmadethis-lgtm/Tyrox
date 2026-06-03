@@ -31,6 +31,10 @@ function AppContent() {
     return localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
   });
 
+  const [bannerImg, setBannerImg] = useState(() => {
+    return localStorage.getItem('tyrox_banner_img') || "/banner.jpg";
+  });
+
   const [activePlaqueData, setActivePlaqueData] = useState<{
     beat_id: string;
     track_title: string;
@@ -45,6 +49,12 @@ function AppContent() {
       const customEvent = e as CustomEvent<string>;
       if (customEvent.detail) {
         setProfileImg(customEvent.detail);
+      }
+    };
+    const handleBannerUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setBannerImg(customEvent.detail);
       }
     };
     const handleMilestone = (e: Event) => {
@@ -62,10 +72,12 @@ function AppContent() {
     };
 
     window.addEventListener('tyrox-profile-updated', handleUpdate);
+    window.addEventListener('tyrox-banner-updated', handleBannerUpdate);
     window.addEventListener('vv-milestone-achieved', handleMilestone);
 
     return () => {
       window.removeEventListener('tyrox-profile-updated', handleUpdate);
+      window.removeEventListener('tyrox-banner-updated', handleBannerUpdate);
       window.removeEventListener('vv-milestone-achieved', handleMilestone);
     };
   }, []);
@@ -82,6 +94,34 @@ function AppContent() {
   return (
     <div id="vibe-vault-root" className="min-h-screen bg-bg-dark text-neutral-100 flex flex-col font-sans select-none antialiased selection:bg-accent-green/20 selection:text-white">
       
+      {/* Absolute Top Premium Header Background Banner */}
+      <div 
+        id="top-website-banner-box"
+        className="w-full h-32 sm:h-40 md:h-48 relative overflow-hidden flex items-center justify-center bg-neutral-950 border-b border-neutral-900/60"
+        style={{
+          backgroundImage: `url('${bannerImg}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        {/* Dark overlay with elegant gradient/vignette for premium layout feel and strict readability */}
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-bg-dark via-transparent to-black/25 pointer-events-none" />
+        <div className="absolute inset-0 bg-[#050608]/40 pointer-events-none" />
+        
+        {/* Ambient Overlay Content to emphasize branding and layout authority */}
+        <div className="relative z-10 text-center select-none pointer-events-none px-4">
+          <p className="text-purple-400 font-mono text-[9px] md:text-xs tracking-[0.35em] uppercase mb-1 drop-shadow font-bold animate-pulse">
+            OFFICIAL ARTIST PORTAL
+          </p>
+          <h2 className="text-2xl md:text-4xl font-sans font-black uppercase tracking-widest text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
+            TYROX MADE THIS
+          </h2>
+          <p className="text-neutral-300 text-[10px] md:text-sm tracking-wide mt-1.5 font-light max-w-lg mx-auto drop-shadow-md">
+            Premium Rap Licensing • High-Contrast Audio Waveforms • Zero Middlemen
+          </p>
+        </div>
+      </div>
+
       {/* Premium Top Navigation header - themed to background */}
       <header className="sticky top-0 bg-[#050608]/95 border-b border-neutral-900/40 px-4 md:px-8 py-4 flex items-center justify-between z-30 backdrop-blur-md">
         

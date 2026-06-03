@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube } from 'lucide-react';
+import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw } from 'lucide-react';
 
 export const AboutView: React.FC = () => {
   const { setActiveTab } = useStore();
@@ -16,6 +16,23 @@ export const AboutView: React.FC = () => {
     return localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
   });
 
+  const [bannerImg, setBannerImg] = React.useState(() => {
+    return localStorage.getItem('tyrox_banner_img') || "/banner.jpg";
+  });
+
+  React.useEffect(() => {
+    const handleBannerUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setBannerImg(customEvent.detail);
+      }
+    };
+    window.addEventListener('tyrox-banner-updated', handleBannerUpdate);
+    return () => {
+      window.removeEventListener('tyrox-banner-updated', handleBannerUpdate);
+    };
+  }, []);
+
   const [socials, setSocials] = React.useState(() => {
     try {
       const saved = localStorage.getItem('tyrox_socials');
@@ -30,6 +47,7 @@ export const AboutView: React.FC = () => {
   const [tempSocials, setTempSocials] = React.useState(socials);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const bannerInputRef = React.useRef<HTMLInputElement>(null);
 
   const toggleEditMode = () => {
     if (!editMode) {
@@ -74,6 +92,97 @@ export const AboutView: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
+  const uploadBanner = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("File must be an image.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      
+      // Save locally
+      localStorage.setItem('tyrox_banner_img', dataUrl);
+      setBannerImg(dataUrl);
+
+      // Sync across standard top visual container immediately
+      const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
+      window.dispatchEvent(syncEvent);
+
+      // Simulate a POST form upload backend call
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        await fetch("/admin/about/upload-banner", { method: "POST", body: formData }).catch(() => {});
+      } catch (err) {
+        console.log("Mock API banner dispatch performed.", err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const [isDragActive, setIsDragActive] = React.useState(false);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setIsDragActive(true);
+    } else if (e.type === "dragleave") {
+      setIsDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("File must be an image.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      
+      // Save locally
+      localStorage.setItem('tyrox_banner_img', dataUrl);
+      setBannerImg(dataUrl);
+
+      // Sync across standard top visual container immediately
+      const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
+      window.dispatchEvent(syncEvent);
+
+      // Simulate a POST form upload backend call
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        await fetch("/admin/about/upload-banner", { method: "POST", body: formData }).catch(() => {});
+      } catch (err) {
+        console.log("Mock API banner dispatch performed.", err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetBanner = () => {
+    const defaultBanner = "/banner.jpg";
+    localStorage.setItem('tyrox_banner_img', defaultBanner);
+    setBannerImg(defaultBanner);
+    
+    const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: defaultBanner });
+    window.dispatchEvent(syncEvent);
+  };
+
   const saveAllChanges = async () => {
     setBioText(tempBioText);
     setSocials(tempSocials);
@@ -105,10 +214,110 @@ export const AboutView: React.FC = () => {
   return (
     <div id="about-page-view" className="py-12 px-4 md:px-8 max-w-5xl mx-auto pt-6 flex flex-col gap-10 min-h-screen text-neutral-100">
       
+      {/* Premium Epic Visual About Banner */}
+      <div 
+        className="relative rounded-2xl overflow-hidden h-44 sm:h-60 md:h-72 w-full shadow-2xl border border-neutral-900/80 flex items-end"
+        style={{
+          backgroundImage: `url('${bannerImg}')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-t from-[#050608] via-transparent to-black/25 pointer-events-none" />
+        <div className="absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-[#050608]/15 to-transparent pointer-events-none" />
+        <div className="absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-[#050608]/15 to-transparent pointer-events-none" />
+      </div>
+
+      {/* 📁 Folder: Edit Header Block */}
+      <div 
+        id="edit-header-folder" 
+        className="w-full max-w-[800px] mx-auto bg-[#0a0b10] border border-neutral-900 rounded-xl shadow-2xl overflow-hidden"
+      >
+        {/* Folder tab layout styling */}
+        <div className="flex items-center">
+          <div className="bg-[#121319] border-t border-x border-neutral-900 px-5 py-2.5 text-[10px] font-mono text-red-500 uppercase tracking-widest rounded-t-lg font-bold ml-6 -mb-[1px] relative z-10 flex items-center gap-2">
+            <FolderEdit size={12} className="text-red-500" />
+            Folder: Edit Header
+          </div>
+          <div className="flex-1 border-b border-neutral-900 h-[1.5px]"></div>
+        </div>
+
+        {/* Folder Content Inner body with Drag & Drop & Click state */}
+        <div 
+          id="about-header-dragzone"
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+          className={`p-6 border-t border-neutral-900 bg-[#111216]/50 transition-all duration-200 ${
+            isDragActive 
+              ? "border-red-500/40 bg-red-950/10" 
+              : "border-transparent"
+          }`}
+        >
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            
+            {/* Explanatory detail */}
+            <div className="space-y-2 flex-1">
+              <h3 className="font-sans font-black text-sm uppercase tracking-wider text-white">
+                Customize Store & Portal Banner
+              </h3>
+              <p className="text-xs text-neutral-400 leading-relaxed font-sans max-w-md">
+                Drag and drop your custom photo here or tap Choose File to update. This changes the top background header across your entire portal and storefront banners.
+              </p>
+              
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  id="btn-folder-choose-banner"
+                  type="button"
+                  onClick={() => bannerInputRef.current?.click()}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-mono text-[10px] tracking-widest uppercase rounded font-bold transition flex items-center gap-2 cursor-pointer"
+                >
+                  <Upload size={12} />
+                  Choose Photo
+                </button>
+                
+                <button
+                  id="btn-folder-reset-banner"
+                  type="button"
+                  onClick={handleResetBanner}
+                  className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[10px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-2 cursor-pointer"
+                >
+                  <RotateCcw size={12} />
+                  Reset Default
+                </button>
+              </div>
+            </div>
+
+            {/* Live Banner Miniature Preview */}
+            <div className="w-full md:w-56 shrink-0 space-y-2">
+              <span className="font-mono text-[9px] uppercase tracking-wider text-purple-400">
+                Live Active Preview:
+              </span>
+              <div 
+                id="folder-preview-thumbnail"
+                className="relative h-20 rounded-lg overflow-hidden border border-neutral-800 shadow bg-neutral-950"
+                style={{
+                  backgroundImage: `url('${bannerImg}')`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                <div className="absolute inset-0 bg-neutral-950/25" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Image size={18} className="text-white/60 drop-shadow" />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
       {/* 1. PROFILE BANNER SECTION */}
       <div style={{ backgroundColor: '#111', color: 'white', maxWidth: '800px', margin: '0 auto', borderRadius: '8px', overflow: 'hidden', position: 'relative' }} className="w-full border border-neutral-800 shadow-2xl">
         
-        <div style={{ background: 'linear-gradient(135deg, #1f1f1f, #000)', padding: '40px 20px', textAlign: 'center', borderBottom: '2px solid #ff0055', position: 'relative' }}>
+        <div style={{ backgroundImage: `linear-gradient(135deg, rgba(17, 18, 22, 0.75), rgba(0, 0, 0, 0.9)), url('${bannerImg}')`, backgroundSize: 'cover', backgroundPosition: 'center', padding: '40px 20px', textAlign: 'center', borderBottom: '2px solid #ff0055', position: 'relative' }}>
           
           {/* Admin Controller Toggle */}
           <button 
@@ -127,7 +336,7 @@ export const AboutView: React.FC = () => {
               src={profileImg} 
               alt="Tyrox" 
               style={{ width: '100%', height: '100%', borderRadius: '50%', border: '3px solid #ff0055', objectFit: 'cover' }}
-              className="shadow-[0_0_20px_rgba(255,0,85,0.4)]"
+              className="shadow-[0_0_20px_rgba(255,0,85,0.4)] relative"
             />
             
             <input 
@@ -138,15 +347,36 @@ export const AboutView: React.FC = () => {
               style={{ display: 'none' }}
               accept="image/*"
             />
+            <input 
+              type="file" 
+              id="bannerInput" 
+              ref={bannerInputRef}
+              onChange={uploadBanner} 
+              style={{ display: 'none' }}
+              accept="image/*"
+            />
             {editMode && (
-              <label 
-                id="photoLabel" 
-                htmlFor="photoInput" 
-                style={{ background: 'rgba(0,0,0,0.85)', padding: '5px 10px', fontSize: '11px', borderRadius: '4px', cursor: 'pointer', position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)' }}
-                className="hover:text-red-400 hover:scale-105 active:scale-95 transition-all border border-neutral-800 whitespace-nowrap"
+              <div 
+                style={{ position: 'absolute', bottom: '-40px', left: '50%', transform: 'translateX(-50%)' }}
+                className="flex flex-col gap-1 z-20 whitespace-nowrap items-center"
               >
-                Upload Real Photo
-              </label>
+                <label 
+                  id="photoLabel" 
+                  htmlFor="photoInput" 
+                  style={{ background: 'rgba(0,0,0,0.95)', padding: '4px 8px', fontSize: '9px', borderRadius: '4px', cursor: 'pointer' }}
+                  className="hover:text-red-400 hover:scale-105 active:scale-95 transition-all border border-neutral-800/80 font-mono text-[9px] uppercase tracking-wider text-neutral-300 font-bold"
+                >
+                  Upload Profile Pic
+                </label>
+                <label 
+                  id="bannerLabel" 
+                  htmlFor="bannerInput" 
+                  style={{ background: 'rgba(0,0,0,0.95)', padding: '4px 8px', fontSize: '9px', borderRadius: '4px', cursor: 'pointer' }}
+                  className="hover:text-purple-400 hover:scale-105 active:scale-95 transition-all border border-neutral-800/80 font-mono text-[9px] uppercase tracking-wider text-neutral-300 font-bold"
+                >
+                  Upload Top Banner
+                </label>
+              </div>
             )}
           </div>
 
