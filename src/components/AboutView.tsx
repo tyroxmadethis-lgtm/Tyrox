@@ -49,6 +49,9 @@ export const AboutView: React.FC = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const bannerInputRef = React.useRef<HTMLInputElement>(null);
 
+  const [profileFile, setProfileFile] = React.useState<File | null>(null);
+  const [bannerFile, setBannerFile] = React.useState<File | null>(null);
+
   const toggleEditMode = () => {
     if (!editMode) {
       setTempBioText(bioText);
@@ -59,9 +62,10 @@ export const AboutView: React.FC = () => {
     }
   };
 
-  const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setProfileFile(file);
 
     if (!file.type.startsWith("image/")) {
       alert("File must be an image.");
@@ -102,9 +106,10 @@ export const AboutView: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const uploadBanner = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setBannerFile(file);
 
     if (!file.type.startsWith("image/")) {
       alert("File must be an image.");
@@ -213,32 +218,83 @@ export const AboutView: React.FC = () => {
     window.dispatchEvent(syncEvent);
   };
 
+  const handleResetProfile = () => {
+    const defaultProfile = "/static/images/tyrox_profile.jpg";
+    localStorage.setItem('tyrox_profile_img', defaultProfile);
+    setProfileImg(defaultProfile);
+    
+    const syncEvent = new CustomEvent('tyrox-profile-updated', { detail: defaultProfile });
+    window.dispatchEvent(syncEvent);
+  };
+
+  const handleFormSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    const formData = new FormData();
+    
+    // Only append files if the user actually chose a new one
+    if (profileFile) formData.append('profilePic', profileFile);
+    if (bannerFile) formData.append('topBanner', bannerFile);
+    
+    // Append your text fields too
+    formData.append('bio', tempBioText);
+    formData.append('instagram', tempSocials.instagram);
+    formData.append('twitter', tempSocials.twitter);
+    formData.append('youtube', tempSocials.youtube);
+
+    try {
+      const response = await fetch('/api/user/update-profile', {
+        method: 'POST',
+        body: formData, // Browser automatically sets 'multipart/form-data' header
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update states to reflect changes
+        setBioText(tempBioText);
+        setSocials(tempSocials);
+        localStorage.setItem('tyrox_bio', tempBioText);
+        localStorage.setItem('tyrox_socials', JSON.stringify(tempSocials));
+
+        // If files are returned or set on disk, sync them immediately
+        if (data.profilePicPath) {
+          const finalProfile = `${data.profilePicPath}?t=${Date.now()}`;
+          localStorage.setItem('tyrox_profile_img', finalProfile);
+          setProfileImg(finalProfile);
+          window.dispatchEvent(new CustomEvent('tyrox-profile-updated', { detail: finalProfile }));
+        } else if (profileFile) {
+          const finalProfile = `/static/images/tyrox_profile.jpg?t=${Date.now()}`;
+          localStorage.setItem('tyrox_profile_img', finalProfile);
+          setProfileImg(finalProfile);
+          window.dispatchEvent(new CustomEvent('tyrox-profile-updated', { detail: finalProfile }));
+        }
+
+        if (data.topBannerPath) {
+          const finalBanner = `${data.topBannerPath}?t=${Date.now()}`;
+          localStorage.setItem('tyrox_banner_img', finalBanner);
+          setBannerImg(finalBanner);
+          window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: finalBanner }));
+        } else if (bannerFile) {
+          const finalBanner = `/banner.jpg?t=${Date.now()}`;
+          localStorage.setItem('tyrox_banner_img', finalBanner);
+          setBannerImg(finalBanner);
+          window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: finalBanner }));
+        }
+
+        setEditMode(false);
+        alert('Profile and banner updated successfully!');
+      } else {
+        alert('Failed to update profile and banner.');
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed: ' + error);
+    }
+  };
+
   const saveAllChanges = async () => {
-    setBioText(tempBioText);
-    setSocials(tempSocials);
-    localStorage.setItem('tyrox_bio', tempBioText);
-    localStorage.setItem('tyrox_socials', JSON.stringify(tempSocials));
-    setEditMode(false);
-
-    // Simulate templates POST
-    try {
-      const formData = new FormData();
-      formData.append("description", tempBioText);
-      await fetch("/admin/about/edit-text", { method: "POST", body: formData }).catch(() => {});
-    } catch (err) {
-      console.log("Mock API text save performed.", err);
-    }
-
-    // Simulate edit-socials POST
-    try {
-      const formData = new FormData();
-      formData.append("instagram", tempSocials.instagram);
-      formData.append("twitter", tempSocials.twitter);
-      formData.append("youtube", tempSocials.youtube);
-      await fetch("/admin/about/edit-socials", { method: "POST", body: formData }).catch(() => {});
-    } catch (err) {
-      console.log("Mock API socials save performed.", err);
-    }
+    await handleFormSubmit();
   };
 
   return (
@@ -258,7 +314,7 @@ export const AboutView: React.FC = () => {
         <div className="absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-[#050608]/15 to-transparent pointer-events-none" />
       </div>
 
-      {/* 📁 Folder: Edit Header Block */}
+      {/* 📁 Folder: Edit Banner & Profile Pic Block */}
       <div 
         id="edit-header-folder" 
         className="w-full max-w-[800px] mx-auto bg-[#0a0b10] border border-neutral-900 rounded-xl shadow-2xl overflow-hidden"
@@ -267,7 +323,7 @@ export const AboutView: React.FC = () => {
         <div className="flex items-center">
           <div className="bg-[#121319] border-t border-x border-neutral-900 px-5 py-2.5 text-[10px] font-mono text-red-500 uppercase tracking-widest rounded-t-lg font-bold ml-6 -mb-[1px] relative z-10 flex items-center gap-2">
             <FolderEdit size={12} className="text-red-500" />
-            Folder: Edit Header
+            Folder: Edit Header & Profile Pic
           </div>
           <div className="flex-1 border-b border-neutral-900 h-[1.5px]"></div>
         </div>
@@ -285,57 +341,128 @@ export const AboutView: React.FC = () => {
               : "border-transparent"
           }`}
         >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-neutral-900/60">
             
-            {/* Explanatory detail */}
-            <div className="space-y-2 flex-1">
-              <h3 className="font-sans font-black text-sm uppercase tracking-wider text-white">
-                Customize Store & Portal Banner
-              </h3>
-              <p className="text-xs text-neutral-400 leading-relaxed font-sans max-w-md">
-                Drag and drop your custom photo here or tap Choose File to update. This changes the top background header across your entire portal and storefront banners.
-              </p>
-              
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  id="btn-folder-choose-banner"
-                  type="button"
-                  onClick={() => bannerInputRef.current?.click()}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-mono text-[10px] tracking-widest uppercase rounded font-bold transition flex items-center gap-2 cursor-pointer"
-                >
-                  <Upload size={12} />
-                  Choose Photo
-                </button>
+            {/* PANEL 1: BANNER EDIT CONTROL */}
+            <div className="space-y-4 pr-0 md:pr-4">
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider font-bold">SECTION A: PORTAL BANNER</span>
+                <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">
+                  Customize Website & Store Banner
+                </h3>
+                <p className="text-[11px] text-neutral-400 leading-relaxed font-sans max-w-sm">
+                  Drag and drop your custom photo here or click choose to update. Changes website-wide storefront and profile banners.
+                </p>
                 
-                <button
-                  id="btn-folder-reset-banner"
-                  type="button"
-                  onClick={handleResetBanner}
-                  className="px-4 py-2 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[10px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-2 cursor-pointer"
+                <div className="pt-2 flex items-center gap-3">
+                  <button
+                    id="btn-folder-choose-banner"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      bannerInputRef.current?.click();
+                    }}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-mono text-[9px] tracking-widest uppercase rounded font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Upload size={11} />
+                    Choose Photo
+                  </button>
+                  
+                  <button
+                    id="btn-folder-reset-banner"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleResetBanner();
+                    }}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[9px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw size={11} />
+                    Reset Default
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Banner Miniature Preview */}
+              <div className="space-y-1.5 pt-1">
+                <span className="font-mono text-[8px] uppercase tracking-wider text-neutral-500">
+                  Store Banner Preview:
+                </span>
+                <div 
+                  id="folder-preview-thumbnail"
+                  className="relative h-16 rounded-lg overflow-hidden border border-neutral-800/80 shadow bg-neutral-950"
+                  style={{
+                    backgroundImage: `url('${bannerImg}')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
                 >
-                  <RotateCcw size={12} />
-                  Reset Default
-                </button>
+                  <div className="absolute inset-0 bg-neutral-950/20" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Image size={14} className="text-white/40 drop-shadow" />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Live Banner Miniature Preview */}
-            <div className="w-full md:w-56 shrink-0 space-y-2">
-              <span className="font-mono text-[9px] uppercase tracking-wider text-purple-400">
-                Live Active Preview:
-              </span>
-              <div 
-                id="folder-preview-thumbnail"
-                className="relative h-20 rounded-lg overflow-hidden border border-neutral-800 shadow bg-neutral-950"
-                style={{
-                  backgroundImage: `url('${bannerImg}')`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }}
-              >
-                <div className="absolute inset-0 bg-neutral-950/25" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Image size={18} className="text-white/60 drop-shadow" />
+            {/* PANEL 2: PROFILE PHOTO EDIT CONTROL */}
+            <div className="space-y-4 pt-6 md:pt-0 pl-0 md:pl-6">
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono text-pink-500 uppercase tracking-wider font-bold">SECTION B: PROFILE IMAGE</span>
+                <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">
+                  Customize Profile Avatar
+                </h3>
+                <p className="text-[11px] text-neutral-400 leading-relaxed font-sans max-w-sm">
+                  Choose a face, logo, or icon from your device. Updates across all artist portal and header badges permanently.
+                </p>
+                
+                <div className="pt-2 flex items-center gap-3">
+                  <button
+                    id="btn-folder-choose-profile"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }}
+                    className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white font-mono text-[9px] tracking-widest uppercase rounded font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Upload size={11} />
+                    Choose Photo
+                  </button>
+                  
+                  <button
+                    id="btn-folder-reset-profile"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleResetProfile();
+                    }}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[9px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw size={11} />
+                    Reset Default
+                  </button>
+                </div>
+              </div>
+
+              {/* Circular Avatar Preview */}
+              <div className="flex items-center gap-4 pt-1">
+                <div className="shrink-0">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#ff0055] bg-neutral-950 shadow-[0_0_12px_rgba(255,0,85,0.3)]">
+                    <img 
+                      src={profileImg} 
+                      alt="Artist avatar" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <span className="font-mono text-[8px] uppercase tracking-wider text-neutral-500 block mb-0.5">
+                    Avatar Status Indicator
+                  </span>
+                  <p className="text-[10px] text-neutral-400 font-sans italic">
+                    Successfully linked to `/static/images/tyrox_profile.jpg` file pipeline.
+                  </p>
                 </div>
               </div>
             </div>
@@ -373,7 +500,7 @@ export const AboutView: React.FC = () => {
               type="file" 
               id="photoInput" 
               ref={fileInputRef}
-              onChange={uploadPhoto} 
+              onChange={handleProfileChange} 
               style={{ display: 'none' }}
               accept="image/*"
             />
@@ -381,7 +508,7 @@ export const AboutView: React.FC = () => {
               type="file" 
               id="bannerInput" 
               ref={bannerInputRef}
-              onChange={uploadBanner} 
+              onChange={handleBannerChange} 
               style={{ display: 'none' }}
               accept="image/*"
             />
@@ -390,22 +517,30 @@ export const AboutView: React.FC = () => {
                 style={{ position: 'absolute', bottom: '-40px', left: '50%', transform: 'translateX(-50%)' }}
                 className="flex flex-col gap-1 z-20 whitespace-nowrap items-center"
               >
-                <label 
+                <button 
                   id="photoLabel" 
-                  htmlFor="photoInput" 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }}
                   style={{ background: 'rgba(0,0,0,0.95)', padding: '4px 8px', fontSize: '9px', borderRadius: '4px', cursor: 'pointer' }}
                   className="hover:text-red-400 hover:scale-105 active:scale-95 transition-all border border-neutral-800/80 font-mono text-[9px] uppercase tracking-wider text-neutral-300 font-bold"
                 >
                   Upload Profile Pic
-                </label>
-                <label 
+                </button>
+                <button 
                   id="bannerLabel" 
-                  htmlFor="bannerInput" 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    bannerInputRef.current?.click();
+                  }}
                   style={{ background: 'rgba(0,0,0,0.95)', padding: '4px 8px', fontSize: '9px', borderRadius: '4px', cursor: 'pointer' }}
                   className="hover:text-purple-400 hover:scale-105 active:scale-95 transition-all border border-neutral-800/80 font-mono text-[9px] uppercase tracking-wider text-neutral-300 font-bold"
                 >
                   Upload Top Banner
-                </label>
+                </button>
               </div>
             )}
           </div>
