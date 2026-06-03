@@ -72,21 +72,31 @@ export const AboutView: React.FC = () => {
     reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
       
-      // Save locally
+      // Save locally (temporary fast feedback)
       localStorage.setItem('tyrox_profile_img', dataUrl);
       setProfileImg(dataUrl);
 
       // Sync across any other active components via custom event
-      const syncEvent = new CustomEvent('tyrox-profile-updated', { detail: dataUrl });
-      window.dispatchEvent(syncEvent);
+      const syncEventTmp = new CustomEvent('tyrox-profile-updated', { detail: dataUrl });
+      window.dispatchEvent(syncEventTmp);
 
-      // Simulate a POST form upload backend call
+      // Real POST form upload backend call
       try {
         const formData = new FormData();
         formData.append("file", file);
-        await fetch("/admin/about/upload-photo", { method: "POST", body: formData }).catch(() => {});
+        const res = await fetch("/admin/about/upload-photo", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const finalPath = `${data.filePath}?t=${Date.now()}`;
+            localStorage.setItem('tyrox_profile_img', finalPath);
+            setProfileImg(finalPath);
+            const syncEvent = new CustomEvent('tyrox-profile-updated', { detail: finalPath });
+            window.dispatchEvent(syncEvent);
+          }
+        }
       } catch (err) {
-        console.log("Mock API dispatch performed.", err);
+        console.error("Profile photo upload error details:", err);
       }
     };
     reader.readAsDataURL(file);
@@ -105,21 +115,31 @@ export const AboutView: React.FC = () => {
     reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
       
-      // Save locally
+      // Save locally (temporary fast feedback)
       localStorage.setItem('tyrox_banner_img', dataUrl);
       setBannerImg(dataUrl);
 
       // Sync across standard top visual container immediately
-      const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
-      window.dispatchEvent(syncEvent);
+      const syncEventTmp = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
+      window.dispatchEvent(syncEventTmp);
 
-      // Simulate a POST form upload backend call
+      // Real POST form upload backend call
       try {
         const formData = new FormData();
         formData.append("file", file);
-        await fetch("/admin/about/upload-banner", { method: "POST", body: formData }).catch(() => {});
+        const res = await fetch("/admin/about/upload-banner", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const finalPath = `${data.filePath}?t=${Date.now()}`;
+            localStorage.setItem('tyrox_banner_img', finalPath);
+            setBannerImg(finalPath);
+            const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: finalPath });
+            window.dispatchEvent(syncEvent);
+          }
+        }
       } catch (err) {
-        console.log("Mock API banner dispatch performed.", err);
+        console.error("Banner upload error details:", err);
       }
     };
     reader.readAsDataURL(file);
@@ -154,21 +174,31 @@ export const AboutView: React.FC = () => {
     reader.onload = async (event) => {
       const dataUrl = event.target?.result as string;
       
-      // Save locally
+      // Save locally (temporary fast feedback)
       localStorage.setItem('tyrox_banner_img', dataUrl);
       setBannerImg(dataUrl);
 
       // Sync across standard top visual container immediately
-      const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
-      window.dispatchEvent(syncEvent);
+      const syncEventTmp = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
+      window.dispatchEvent(syncEventTmp);
 
-      // Simulate a POST form upload backend call
+      // Real POST form upload backend call
       try {
         const formData = new FormData();
         formData.append("file", file);
-        await fetch("/admin/about/upload-banner", { method: "POST", body: formData }).catch(() => {});
+        const res = await fetch("/admin/about/upload-banner", { method: "POST", body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const finalPath = `${data.filePath}?t=${Date.now()}`;
+            localStorage.setItem('tyrox_banner_img', finalPath);
+            setBannerImg(finalPath);
+            const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: finalPath });
+            window.dispatchEvent(syncEvent);
+          }
+        }
       } catch (err) {
-        console.log("Mock API banner dispatch performed.", err);
+        console.error("Drag banner upload error details:", err);
       }
     };
     reader.readAsDataURL(file);
