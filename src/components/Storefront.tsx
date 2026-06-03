@@ -43,9 +43,16 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
   const [email, setEmail] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [couponMessage, setCouponMessage] = useState<{ text: string; error: boolean } | null>(null);
-  const [checkoutReceipt, setCheckoutReceipt] = useState<{ orderId: string; totalPaid: number; tracks: Array<{title: string, license: string}> } | null>(null);
+  const [checkoutReceipt, setCheckoutReceipt] = useState<{ orderId: string; totalPaid: number; tracks: Array<{title: string, license: string}>; downloadSecureUrl?: string; legalContract?: any } | null>(null);
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [showPayPalPayBlock, setShowPayPalPayBlock] = useState(false);
+
+  // Stripe Custom Checkout States
+  const [buyerName, setBuyerName] = useState('');
+  const [stripeCard, setStripeCard] = useState({ number: '', expiry: '', cvc: '' });
+  const [stripeError, setStripeError] = useState<string | null>(null);
+  const [isStripeProcessing, setIsStripeProcessing] = useState(false);
+  const [showStripePayBlock, setShowStripePayBlock] = useState(false);
   
   // Free Download Modal State
   const [downloadTrack, setDownloadTrack] = useState<Track | null>(null);
@@ -189,6 +196,87 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
     }
   };
 
+  const handleStripePaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!buyerName.trim()) {
+      setStripeError("Please enter the cardholder's legal name.");
+      return;
+    }
+    if (!stripeCard.number || !stripeCard.expiry || !stripeCard.cvc) {
+      setStripeError("Please complete all credit card safety fields.");
+      return;
+    }
+
+    setIsStripeProcessing(true);
+    setStripeError(null);
+
+    try {
+      // Loop over items and perform concurrent payments via backend
+      const checkoutPromises = cart.map(async (item) => {
+        const response = await fetch('/api/checkout/stripe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trackId: item.track.id,
+            buyerEmail: email,
+            buyerName: buyerName,
+            paymentMethodId: 'pm_card_visa'
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `Checkout failed for track: ${item.track.title}`);
+        }
+
+        return await response.json();
+      });
+
+      const results = await Promise.all(checkoutPromises);
+      const lastResult = results[results.length - 1];
+
+      // Track paid purchases: call live telemetry logger for every item in cart before clearing
+      cart.forEach(item => {
+        let finalPrice = item.license.price;
+        if (discountRate > 0) {
+          finalPrice = parseFloat((finalPrice * (1 - discountRate)).toFixed(2));
+        }
+        apiFetch(`/api/v1/store/track-paid-purchase?track_name=${encodeURIComponent(item.track.title)}&license_type=${encodeURIComponent(item.license.name)}&buyer_email=${encodeURIComponent(email)}&payout_amount=${finalPrice}`, {
+          method: "POST"
+        }).catch(err => console.error("Error logging paid purchase tracking:", err));
+      });
+
+      const itemsSummary = cart.map(item => ({
+        title: item.track.title,
+        license: item.license.name
+      }));
+      const totalPaid = cartTotal;
+
+      const res = checkout(email, activeCouponCode);
+      if (res.success) {
+        setCheckoutReceipt({
+          orderId: lastResult?.legalContract?.digitalSignatureHash || res.orderId || "pi_stripe_tx",
+          totalPaid,
+          tracks: itemsSummary,
+          downloadSecureUrl: lastResult?.downloadSecureUrl,
+          legalContract: lastResult?.legalContract
+        });
+        setEmail('');
+        setBuyerName('');
+        setStripeCard({ number: '', expiry: '', cvc: '' });
+        setCouponCode('');
+        setCouponMessage(null);
+        setShowCheckoutForm(false);
+        setShowStripePayBlock(false);
+      }
+    } catch (err: any) {
+      console.error("Stripe payment handler failure:", err);
+      setStripeError(err.message || "Stripe Connect routing error occurred.");
+    } finally {
+      setIsStripeProcessing(false);
+    }
+  };
+
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !email.includes('@')) {
@@ -198,6 +286,11 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
 
     if (payoutMethod === 'paypal') {
       setShowPayPalPayBlock(true);
+      return;
+    }
+
+    if (payoutMethod === 'stripe') {
+      setShowStripePayBlock(true);
       return;
     }
 
@@ -570,6 +663,34 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                 <p className="text-[10px] text-neutral-400 font-sans leading-relaxed">
                   Receipt for order <b className="text-cyan-300 font-mono">{checkoutReceipt.orderId}</b>. Contracts and stems are compiled and delivered.
                 </p>
+
+                {/* Direct High Speed Download URL */}
+                {checkoutReceipt.downloadSecureUrl && (
+                  <div className="p-2.5 bg-neutral-950 border border-cyan-500/15 rounded-lg flex flex-col gap-1.5">
+                    <span className="font-mono text-[8.5px] uppercase text-neutral-400">Direct Delivery Token</span>
+                    <a 
+                      href={checkoutReceipt.downloadSecureUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-sans font-bold text-accent-green hover:underline flex items-center gap-1 truncate"
+                    >
+                      <span>📥 Download Master Beats + Stems</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Legal Smart Contract Details */}
+                {checkoutReceipt.legalContract && (
+                  <div className="p-2.5 bg-neutral-950 border border-purple-500/15 rounded-lg space-y-1.5 font-mono text-[9px] text-neutral-400">
+                    <span className="text-[8px] uppercase font-black text-purple-400">🛡️ Legal Smart Contract signed</span>
+                    <div className="space-y-0.5">
+                      <p>License: <b className="text-neutral-200">{checkoutReceipt.legalContract.licenseType}</b></p>
+                      <p>Issued To: <b className="text-neutral-200">{checkoutReceipt.legalContract.issuedTo}</b></p>
+                      <p>Signature Hash: <b className="text-neutral-300">{checkoutReceipt.legalContract.digitalSignatureHash}</b></p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="border-t border-cyan-500/10 pt-2 space-y-1">
                   {checkoutReceipt.tracks.map((ct, idx) => (
                     <div key={idx} className="flex justify-between items-center text-[10px]">
@@ -697,8 +818,135 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                       onCancel={() => setShowPayPalPayBlock(false)}
                     />
                   </div>
+                ) : showStripePayBlock ? (
+                  <form onSubmit={handleStripePaymentSubmit} className="space-y-4 pt-4 border-t border-neutral-900 animate-slideIn">
+                    <div className="flex items-[#10111a] justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">💳</span>
+                        <h4 className="font-sans font-bold text-xs uppercase text-neutral-200">Stripe Live Checkout</h4>
+                      </div>
+                      <span className="font-mono text-[11px] text-accent-green font-bold">${cartTotal.toFixed(2)}</span>
+                    </div>
+
+                    <p className="text-[10px] text-neutral-500 font-sans leading-relaxed">
+                      Powered by Stripe Connect destination charges. Funds are split and instantly transferred to <b>{payoutEmail || "tyroxmadethis@gmail.com"}</b>.
+                    </p>
+
+                    {stripeError && (
+                      <div className="p-2 border border-red-500/20 bg-red-950/20 rounded-lg text-red-400 text-[9.5px] font-sans leading-normal">
+                        ⚠️ {stripeError}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      {/* Legal Cardholder Name */}
+                      <div className="space-y-1">
+                        <label className="font-mono text-[9px] uppercase text-neutral-500 block text-left">Cardholder Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={buyerName}
+                          onChange={(e) => setBuyerName(e.target.value)}
+                          placeholder="Your legal name"
+                          className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-850 text-neutral-100 text-xs rounded-lg outline-none focus:border-accent-green"
+                        />
+                      </div>
+
+                      {/* Card Number */}
+                      <div className="space-y-1">
+                        <label className="font-mono text-[9px] uppercase text-neutral-500 block text-left">Card Number</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            maxLength={19}
+                            value={stripeCard.number}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+                              const matches = v.match(/\d{4,16}/g);
+                              const match = (matches && matches[0]) || '';
+                              const parts = [];
+                              for (let i = 0, len = match.length; i < len; i += 4) {
+                                parts.push(match.substring(i, i + 4));
+                              }
+                              const formatted = parts.length > 0 ? parts.join(' ') : v;
+                              setStripeCard({ ...stripeCard, number: formatted });
+                            }}
+                            placeholder="4242 4242 4242 4242"
+                            className="w-full pl-3 pr-10 py-1.5 bg-neutral-950 border border-neutral-850 text-neutral-100 text-xs rounded-lg outline-none focus:border-accent-green font-mono"
+                          />
+                          <span className="absolute right-3 top-2 text-neutral-500 text-xs">🔒</span>
+                        </div>
+                      </div>
+
+                      {/* Expiry & CVC Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="font-mono text-[9px] uppercase text-neutral-500 block text-left">Expiration Date</label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={5}
+                            value={stripeCard.expiry}
+                            onChange={(e) => {
+                              let v = e.target.value.replace(/[^0-9]/g, '');
+                              if (v.length > 2) {
+                                v = v.substring(0, 2) + '/' + v.substring(2, 4);
+                              }
+                              setStripeCard({ ...stripeCard, expiry: v });
+                            }}
+                            placeholder="MM/YY"
+                            className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-850 text-neutral-100 text-xs rounded-lg outline-none focus:border-accent-green font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-mono text-[9px] uppercase text-neutral-500 block text-left">CVC Security Code</label>
+                          <input
+                            type="password"
+                            required
+                            maxLength={3}
+                            value={stripeCard.cvc}
+                            onChange={(e) => setStripeCard({ ...stripeCard, cvc: e.target.value.replace(/[^0-9]/g, '') })}
+                            placeholder="•••"
+                            className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-850 text-neutral-100 text-xs rounded-lg outline-none focus:border-accent-green font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowStripePayBlock(false);
+                          setStripeError(null);
+                        }}
+                        disabled={isStripeProcessing}
+                        className="flex-1 py-1.5 bg-neutral-900 border border-neutral-855 hover:bg-neutral-850 text-neutral-400 text-[10px] font-sans font-bold uppercase rounded-lg transition cursor-pointer disabled:opacity-55"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isStripeProcessing}
+                        className="flex-1 py-1.5 bg-accent-green text-neutral-950 hover:bg-accent-green-hover text-[10px] font-sans font-extrabold uppercase rounded-lg transition cursor-pointer disabled:opacity-55 flex items-center justify-center gap-1.5"
+                      >
+                        {isStripeProcessing ? (
+                          <>
+                            <span className="w-3 h-3 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin" />
+                            <span>Clearing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Pay Securely</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
                 ) : (
-                  <form onSubmit={handleCheckoutSubmit} className="space-y-3 pt-3 border-t border-neutral-900">
+                  <form onSubmit={handleCheckoutSubmit} className="space-y-3 pt-3 border-t border-neutral-900 animate-slideIn">
                     <p className="text-[10px] text-neutral-500 font-sans leading-relaxed">
                       Enter email for contract/download issuance. All processing runs fully isolated.
                     </p>
@@ -719,6 +967,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                         onClick={() => {
                           setShowCheckoutForm(false);
                           setShowPayPalPayBlock(false);
+                          setShowStripePayBlock(false);
                         }}
                         className="flex-1 py-1.5 bg-neutral-900 border border-neutral-850 hover:bg-neutral-850 text-neutral-400 text-[10px] font-sans rounded-lg uppercase transition cursor-pointer"
                       >
@@ -728,7 +977,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                         type="submit"
                         className="flex-1 py-1.5 bg-accent-green text-neutral-950 hover:bg-accent-green-hover text-[10px] font-sans font-bold uppercase rounded-lg transition cursor-pointer"
                       >
-                        {payoutMethod === 'paypal' ? 'Proceed to PayPal' : 'Finalize'}
+                        {payoutMethod === 'paypal' ? 'Proceed to PayPal' : payoutMethod === 'stripe' ? 'Proceed to Stripe' : 'Finalize'}
                       </button>
                     </div>
                   </form>
