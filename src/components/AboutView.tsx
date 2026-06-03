@@ -177,10 +177,10 @@ export const AboutView: React.FC = () => {
       
       // 2. Append text input links correctly as standard strings
       // Make sure your input elements have these exact ID attributes or match your state names
-      const twitterInput = (document.getElementById('twitter-url') as HTMLInputElement)?.value || tempSocials.twitter || "";
-      const youtubeInput = (document.getElementById('youtube-url') as HTMLInputElement)?.value || tempSocials.youtube || "";
-      const tiktokInput = (document.getElementById('tiktok-url') as HTMLInputElement)?.value || tempSocials.tiktok || "";
-      const instagramInput = (document.getElementById('instagram-url') as HTMLInputElement)?.value || tempSocials.instagram || "";
+      const twitterInput = (document.getElementById('twitter-url') as HTMLInputElement)?.value ?? tempSocials.twitter ?? "";
+      const youtubeInput = (document.getElementById('youtube-url') as HTMLInputElement)?.value ?? tempSocials.youtube ?? "";
+      const tiktokInput = (document.getElementById('tiktok-url') as HTMLInputElement)?.value ?? tempSocials.tiktok ?? "";
+      const instagramInput = (document.getElementById('instagram-url') as HTMLInputElement)?.value ?? tempSocials.instagram ?? "";
 
       formData.append('twitter', twitterInput);
       formData.append('youtube', youtubeInput);

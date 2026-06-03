@@ -202,10 +202,10 @@ const MockUser = {
         const socialLinks = {
           ...u.socialLinks,
           ...updater.socialLinks,
-          ...(updater["socialLinks.tiktok"] ? { tiktok: updater["socialLinks.tiktok"] } : {}),
-          ...(updater["socialLinks.instagram"] ? { instagram: updater["socialLinks.instagram"] } : {}),
-          ...(updater["socialLinks.youtube"] ? { youtube: updater["socialLinks.youtube"] } : {}),
-          ...(updater["socialLinks.twitter"] ? { twitter: updater["socialLinks.twitter"] } : {})
+          ...(updater["socialLinks.tiktok"] !== undefined ? { tiktok: updater["socialLinks.tiktok"] } : {}),
+          ...(updater["socialLinks.instagram"] !== undefined ? { instagram: updater["socialLinks.instagram"] } : {}),
+          ...(updater["socialLinks.youtube"] !== undefined ? { youtube: updater["socialLinks.youtube"] } : {}),
+          ...(updater["socialLinks.twitter"] !== undefined ? { twitter: updater["socialLinks.twitter"] } : {})
         };
         return {
           ...u,
