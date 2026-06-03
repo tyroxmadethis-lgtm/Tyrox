@@ -22,6 +22,10 @@ const EnterpriseUserSchema = new mongoose.Schema({
     twitter: { type: String, default: "" }
   },
 
+  // Biographical Information
+  bio: { type: String, default: "" },
+  bioDescription: { type: String, default: "" },
+
   // Asset References
   profilePictureUrl: { type: String, default: "" },
   bannerPictureUrl: { type: String, default: "" }

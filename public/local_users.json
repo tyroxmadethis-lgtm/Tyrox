@@ -1,0 +1,21 @@
+[
+  {
+    "_id": "6459fa4f8f4a13bf8eabcc1a",
+    "username": "tyrox",
+    "email": "tyroxmadethis@gmail.com",
+    "enterpriseTier": "VIP Platinum Beat Maker",
+    "stripeConnectAccountId": "acct_tyrox_exclusive_123",
+    "socialLinks": {
+      "tiktok": "tiktok.com",
+      "instagram": "instagram.com",
+      "twitter": "twitter.com",
+      "youtube": "youtube.com"
+    },
+    "profilePictureUrl": "/static/images/tyrox_profile.jpg",
+    "bannerPictureUrl": "/banner.jpg",
+    "createdAt": "2026-06-03T21:08:00.995Z",
+    "updatedAt": "2026-06-03T21:10:14.006Z",
+    "bio": "Southside is a legendary multi-platinum record producer and the key architect of 808 Mafia. Pioneering the dark, aggressive, gritty trap sound that defined modern hip-hop, he has produced hits for Future, Drake, Travis Scott, Young Thug, and Lil Baby. This portal serves as the exclusive primary vault for unreleased custom stems and official enterprise beat licensing.",
+    "bioDescription": "Southside is a legendary multi-platinum record producer and the key architect of 808 Mafia. Pioneering the dark, aggressive, gritty trap sound that defined modern hip-hop, he has produced hits for Future, Drake, Travis Scott, Young Thug, and Lil Baby. This portal serves as the exclusive primary vault for unreleased custom stems and official enterprise beat licensing."
+  }
+]
