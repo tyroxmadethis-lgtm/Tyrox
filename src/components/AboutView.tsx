@@ -167,37 +167,60 @@ export const AboutView: React.FC = () => {
     window.dispatchEvent(syncEvent);
   };
 
-  const handleFormSubmit = async (e?: React.FormEvent) => {
+  const handleSubmitSimultaneously = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setUploading(true);
-    
-    const formData = new FormData();
-    
-    // Only append files if the user actually chose a new one
-    if (profileFile) formData.append('profilePic', profileFile);
-    if (bannerFile) formData.append('topBanner', bannerFile);
-    
-    // Append your text fields too
-    formData.append('bio', tempBioText);
-    formData.append('tiktok', tempSocials.tiktok);
-    formData.append('instagram', tempSocials.instagram);
-    formData.append('twitter', tempSocials.twitter);
-    formData.append('youtube', tempSocials.youtube);
 
     try {
+      // 1. Initialize a clean FormData object instance
+      const formData = new FormData();
+      
+      // 2. Append text input links correctly as standard strings
+      // Make sure your input elements have these exact ID attributes or match your state names
+      const twitterInput = (document.getElementById('twitter-url') as HTMLInputElement)?.value || tempSocials.twitter || "";
+      const youtubeInput = (document.getElementById('youtube-url') as HTMLInputElement)?.value || tempSocials.youtube || "";
+      const tiktokInput = (document.getElementById('tiktok-url') as HTMLInputElement)?.value || tempSocials.tiktok || "";
+      const instagramInput = (document.getElementById('instagram-url') as HTMLInputElement)?.value || tempSocials.instagram || "";
+
+      formData.append('twitter', twitterInput);
+      formData.append('youtube', youtubeInput);
+      formData.append('tiktok', tiktokInput);
+      formData.append('instagram', instagramInput);
+      
+      // Also append bio descriptor so it doesn't get lost
+      formData.append('bio', tempBioText);
+
+      // 3. Append your files only if they exist in state
+      if (profileFile) {
+        formData.append('profilePic', profileFile);
+      }
+      if (bannerFile) {
+        formData.append('topBanner', bannerFile);
+      }
+
+      // 4. Send the payload bundle to your API route
       const response = await fetch('/api/user/upload-assets', {
         method: 'POST',
-        body: formData, // Browser automatically formats this as a single multipart request
+        // CRUCIAL: Do NOT pass a 'Content-Type' header here.
+        // Leaving it blank forces the browser to set 'multipart/form-data' 
+        // with the correct structural boundary automatically.
+        body: formData, 
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
+        const nextSocials = {
+          twitter: twitterInput,
+          youtube: youtubeInput,
+          tiktok: tiktokInput,
+          instagram: instagramInput
+        };
         // Update states to reflect changes
         setBioText(tempBioText);
-        setSocials(tempSocials);
+        setSocials(nextSocials);
         localStorage.setItem('tyrox_bio', tempBioText);
-        localStorage.setItem('tyrox_socials', JSON.stringify(tempSocials));
+        localStorage.setItem('tyrox_socials', JSON.stringify(nextSocials));
 
         // If files are returned or set on disk, sync them immediately
         if (data.profilePicPath) {
@@ -237,20 +260,21 @@ export const AboutView: React.FC = () => {
         setBannerFile(null);
 
         setEditMode(false);
-        alert('Profile picture and banner uploaded simultaneously successfully!');
+        alert('Links and assets updated simultaneously without errors!');
       } else {
-        alert(`Upload error: ${data.message || data.error || 'Failed to update profile and banner.'}`);
+        alert(`Server Error: ${data.message || data.error || 'Failed to update profile and banner.'}`);
       }
+
     } catch (error: any) {
-      console.error('Upload failed:', error);
-      alert('Upload failed: ' + error.message);
+      console.error('Submission processing caught an error:', error);
+      alert(`Client-side processing error: ${error.message}`);
     } finally {
       setUploading(false);
     }
   };
 
   const saveAllChanges = async () => {
-    await handleFormSubmit();
+    await handleSubmitSimultaneously();
   };
 
   return (
@@ -619,7 +643,7 @@ export const AboutView: React.FC = () => {
               </label>
               <input 
                 type="text" 
-                id="inputTiktok" 
+                id="tiktok-url" 
                 value={tempSocials.tiktok}
                 onChange={(e) => setTempSocials({ ...tempSocials, tiktok: e.target.value })}
                 placeholder="https://tiktok.com/@..." 
@@ -632,7 +656,7 @@ export const AboutView: React.FC = () => {
               </label>
               <input 
                 type="text" 
-                id="inputInsta" 
+                id="instagram-url" 
                 value={tempSocials.instagram}
                 onChange={(e) => setTempSocials({ ...tempSocials, instagram: e.target.value })}
                 placeholder="https://instagram.com..." 
@@ -645,7 +669,7 @@ export const AboutView: React.FC = () => {
               </label>
               <input 
                 type="text" 
-                id="inputTwitter" 
+                id="twitter-url" 
                 value={tempSocials.twitter}
                 onChange={(e) => setTempSocials({ ...tempSocials, twitter: e.target.value })}
                 placeholder="https://twitter.com..." 
@@ -658,7 +682,7 @@ export const AboutView: React.FC = () => {
               </label>
               <input 
                 type="text" 
-                id="inputYoutube" 
+                id="youtube-url" 
                 value={tempSocials.youtube}
                 onChange={(e) => setTempSocials({ ...tempSocials, youtube: e.target.value })}
                 placeholder="https://youtube.com..." 
