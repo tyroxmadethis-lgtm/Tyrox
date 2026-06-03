@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw } from 'lucide-react';
+import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw, Music } from 'lucide-react';
 
 export const AboutView: React.FC = () => {
   const { setActiveTab } = useStore();
@@ -36,9 +36,18 @@ export const AboutView: React.FC = () => {
   const [socials, setSocials] = React.useState(() => {
     try {
       const saved = localStorage.getItem('tyrox_socials');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          tiktok: parsed.tiktok || "https://tiktok.com/@tyroxbeats",
+          instagram: parsed.instagram || "https://instagram.com/tyrox",
+          twitter: parsed.twitter || "https://twitter.com/tyrox",
+          youtube: parsed.youtube || "https://youtube.com/c/tyrox"
+        };
+      }
     } catch (e) {}
     return {
+      tiktok: "https://tiktok.com/@tyroxbeats",
       instagram: "https://instagram.com/tyrox",
       twitter: "https://twitter.com/tyrox",
       youtube: "https://youtube.com/c/tyrox"
@@ -170,6 +179,7 @@ export const AboutView: React.FC = () => {
     
     // Append your text fields too
     formData.append('bio', tempBioText);
+    formData.append('tiktok', tempSocials.tiktok);
     formData.append('instagram', tempSocials.instagram);
     formData.append('twitter', tempSocials.twitter);
     formData.append('youtube', tempSocials.youtube);
@@ -258,6 +268,30 @@ export const AboutView: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-[#050608] via-transparent to-black/25 pointer-events-none" />
         <div className="absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-[#050608]/15 to-transparent pointer-events-none" />
         <div className="absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-[#050608]/15 to-transparent pointer-events-none" />
+        
+        {/* Pinned Social Links Dock */}
+        <div className="absolute bottom-4 right-4 flex items-center gap-3.5 z-10 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          {socials.tiktok && (
+            <a href={socials.tiktok} target="_blank" rel="noreferrer" title="TikTok" className="text-neutral-300 hover:text-red-500 transition-colors duration-200 pb-0.5">
+              <Music className="w-4 h-4" />
+            </a>
+          )}
+          {socials.instagram && (
+            <a href={socials.instagram} target="_blank" rel="noreferrer" title="Instagram" className="text-neutral-300 hover:text-pink-500 transition-colors duration-200 pb-0.5">
+              <Instagram className="w-4 h-4" />
+            </a>
+          )}
+          {socials.youtube && (
+            <a href={socials.youtube} target="_blank" rel="noreferrer" title="YouTube" className="text-neutral-300 hover:text-red-600 transition-colors duration-200 pb-0.5">
+              <Youtube className="w-4 h-4" />
+            </a>
+          )}
+          {socials.twitter && (
+            <a href={socials.twitter} target="_blank" rel="noreferrer" title="Twitter" className="text-neutral-300 hover:text-sky-400 transition-colors duration-200 pb-0.5">
+              <Twitter className="w-4 h-4" />
+            </a>
+          )}
+        </div>
       </div>
 
       {/* 📁 Folder: Edit Banner & Profile Pic Block */}
@@ -497,6 +531,19 @@ export const AboutView: React.FC = () => {
           
           {/* DYNAMIC BANNER FOOTER: Social Media Links Appear Here */}
           <div id="socialsBannerBottom" style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '25px' }}>
+            {socials.tiktok ? (
+              <a 
+                id="linkTiktok" 
+                href={socials.tiktok} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                style={{ color: '#aaa', textDecoration: 'none', fontSize: '14px', fontWeight: '500', transition: 'color 0.2s' }}
+                className="hover:text-red-500 flex items-center gap-1.5"
+              >
+                <Music size={14} className="text-red-500" />
+                TikTok
+              </a>
+            ) : null}
             {socials.instagram ? (
               <a 
                 id="linkInsta" 
@@ -565,6 +612,19 @@ export const AboutView: React.FC = () => {
                 onChange={(e) => setTempBioText(e.target.value)}
                 style={{ width: '100%', height: '80px', background: '#222', color: 'white', border: '1px solid #333', padding: '8px', marginBottom: '15px', borderRadius: '4px' }}
                 className="text-xs font-sans focus:outline-none focus:border-red-500/50"
+              />
+
+              <label style={{ display: 'block', marginBottom: '5px', color: '#aaa' }} className="text-xs font-mono uppercase tracking-wide">
+                TikTok URL:
+              </label>
+              <input 
+                type="text" 
+                id="inputTiktok" 
+                value={tempSocials.tiktok}
+                onChange={(e) => setTempSocials({ ...tempSocials, tiktok: e.target.value })}
+                placeholder="https://tiktok.com/@..." 
+                style={{ width: '100%', background: '#222', color: 'white', border: '1px solid #333', padding: '8px', marginBottom: '12px', borderRadius: '4px' }}
+                className="text-xs font-mono focus:outline-none focus:border-red-500/50"
               />
               
               <label style={{ display: 'block', marginBottom: '5px', color: '#aaa' }} className="text-xs font-mono uppercase tracking-wide">

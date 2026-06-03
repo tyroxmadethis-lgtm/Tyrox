@@ -4,6 +4,7 @@ import fs from "fs";
 import multer from "multer";
 import { createServer as createViteServer } from "vite";
 import { connectToDatabase } from "./lib/mongodb";
+import { User, Track } from "./lib/mongooseModels";
 
 async function startServer() {
   const app = express();
@@ -44,7 +45,7 @@ async function startServer() {
       { name: "profilePic", maxCount: 1 },
       { name: "topBanner", maxCount: 1 },
     ]),
-    (req, res) => {
+    async (req, res) => {
       try {
         console.log("Server received combined profile/banner update:", req.body);
         const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -54,14 +55,31 @@ async function startServer() {
           message: "Profile and banner updated successfully!",
         };
 
+        const updatePayload: any = {};
+
         if (filesMap) {
           if (filesMap["profilePic"] && filesMap["profilePic"][0]) {
+            updatePayload.profilePictureUrl = "/static/images/tyrox_profile.jpg";
             responseData.profilePicPath = "/static/images/tyrox_profile.jpg";
           }
           if (filesMap["topBanner"] && filesMap["topBanner"][0]) {
+            updatePayload.bannerPictureUrl = "/banner.jpg";
             responseData.topBannerPath = "/banner.jpg";
           }
         }
+
+        // Parse any incoming social information
+        if (req.body.tiktok !== undefined) updatePayload["socialLinks.tiktok"] = req.body.tiktok;
+        if (req.body.instagram !== undefined) updatePayload["socialLinks.instagram"] = req.body.instagram;
+        if (req.body.twitter !== undefined) updatePayload["socialLinks.twitter"] = req.body.twitter;
+        if (req.body.youtube !== undefined) updatePayload["socialLinks.youtube"] = req.body.youtube;
+        if (req.body.enterpriseTier !== undefined) updatePayload.enterpriseTier = req.body.enterpriseTier;
+
+        // Perform mongoose update
+        await User.updateOne({ username: "tyrox" }, { $set: updatePayload });
+
+        const updatedDbUser = await User.findOne({ username: "tyrox" });
+        responseData.user = updatedDbUser;
 
         res.json(responseData);
       } catch (error: any) {
@@ -78,7 +96,7 @@ async function startServer() {
       { name: "profilePic", maxCount: 1 },
       { name: "topBanner", maxCount: 1 },
     ]),
-    (req, res) => {
+    async (req, res) => {
       try {
         console.log("Server received simultaneous upload-assets:", req.body);
         const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -88,14 +106,30 @@ async function startServer() {
           message: "Profile picture and banner uploaded simultaneously successfully!",
         };
 
+        const updatePayload: any = {};
+
         if (filesMap) {
           if (filesMap["profilePic"] && filesMap["profilePic"][0]) {
+            updatePayload.profilePictureUrl = "/static/images/tyrox_profile.jpg";
             responseData.profilePicPath = "/static/images/tyrox_profile.jpg";
           }
           if (filesMap["topBanner"] && filesMap["topBanner"][0]) {
+            updatePayload.bannerPictureUrl = "/banner.jpg";
             responseData.topBannerPath = "/banner.jpg";
           }
         }
+
+        if (req.body.tiktok !== undefined) updatePayload["socialLinks.tiktok"] = req.body.tiktok;
+        if (req.body.instagram !== undefined) updatePayload["socialLinks.instagram"] = req.body.instagram;
+        if (req.body.twitter !== undefined) updatePayload["socialLinks.twitter"] = req.body.twitter;
+        if (req.body.youtube !== undefined) updatePayload["socialLinks.youtube"] = req.body.youtube;
+        if (req.body.enterpriseTier !== undefined) updatePayload.enterpriseTier = req.body.enterpriseTier;
+
+        // Perform Mongoose dynamic updates
+        await User.updateOne({ username: "tyrox" }, { $set: updatePayload });
+
+        const updatedDbUser = await User.findOne({ username: "tyrox" });
+        responseData.user = updatedDbUser;
 
         res.json(responseData);
       } catch (error: any) {
@@ -116,6 +150,10 @@ async function startServer() {
       console.log(`Fulfillment requested for order: ${orderId}, artist: ${artistId}`);
 
       const db = await connectToDatabase();
+
+      // Query database using our registered Mongoose Track schema for validation
+      const dbTrack = await Track.findOne({ title: "Tokyo Drift" });
+      console.log("Mongoose Track collection parsed specs:", dbTrack);
 
       // 1. Fetch artist masters and high-res cover layout from Cloudflare R2
       const artistMedia = await db.collection('media').findOne({ artistId });
