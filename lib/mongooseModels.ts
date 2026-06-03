@@ -111,40 +111,8 @@ class LocalFileStore {
     }
 
     if (!fs.existsSync(this.tracksPath)) {
-      const defaultTracks = [
-        {
-          _id: "6459fa4f8f4a13bf8eabcc1b",
-          title: "Tokyo Drift",
-          producerId: "6459fa4f8f4a13bf8eabcc1a",
-          audioFileUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-          stemsFileUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1-stems.zip",
-          acousticFingerprint: "fp_tokyo_drift_982182",
-          payoutSplits: [
-            { userId: "6459fa4f8f4a13bf8eabcc1a", percentageShare: 1.0 }
-          ],
-          licensingOptions: {
-            basicLeasePrice: 29.99,
-            exclusivePrice: 499.99
-          }
-        },
-        {
-          _id: "6459fa4f8f4a13bf8eabcc1c",
-          title: "Midnight Chill",
-          producerId: "6459fa4f8f4a13bf8eabcc1a",
-          audioFileUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-          stemsFileUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2-stems.zip",
-          acousticFingerprint: "fp_midnight_chill_123898",
-          payoutSplits: [
-            { userId: "6459fa4f8f4a13bf8eabcc1a", percentageShare: 1.0 }
-          ],
-          licensingOptions: {
-            basicLeasePrice: 24.99,
-            exclusivePrice: 399.99
-          }
-        }
-      ];
       fs.mkdirSync(path.dirname(this.tracksPath), { recursive: true });
-      fs.writeFileSync(this.tracksPath, JSON.stringify(defaultTracks, null, 2), 'utf-8');
+      fs.writeFileSync(this.tracksPath, JSON.stringify([], null, 2), 'utf-8');
     }
   }
 

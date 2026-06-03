@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PayPalCheckout } from './PayPalCheckout';
 import { apiFetch } from '../services/apiMock';
+import FreeDownloadGateModal from './FreeDownloadGateModal';
 
 interface StorefrontProps {
   onOpenLicenseModal: (track: Track) => void;
@@ -988,65 +989,52 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
 
       {/* FREE DOWNLOAD EMAIL CAPTURE MODAL */}
       {downloadTrack && (
-        <div className="fixed inset-0 bg-[#020204]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#090b10] border border-neutral-850 w-full max-w-sm rounded-[20px] p-6 shadow-2xl relative animate-scaleUp">
-            
-            {/* Close Button */}
-            <button
-              onClick={() => setDownloadTrack(null)}
-              className="absolute top-4 right-4 text-neutral-500 hover:text-white cursor-pointer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-[18px] h-[18px]">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
+        <FreeDownloadGateModal
+          track={{
+            id: downloadTrack.id,
+            title: downloadTrack.title,
+            imageUrl: downloadTrack.imageUrl
+          }}
+          onClose={() => setDownloadTrack(null)}
+          onActivationSuccess={(email) => {
+            // Add their email to the mailing list
+            const existing = JSON.parse(localStorage.getItem('vv_newsletter_subscribers') || '[]');
+            if (!existing.includes(email)) {
+              existing.push(email);
+              localStorage.setItem('vv_newsletter_subscribers', JSON.stringify(existing));
+            }
 
-            {!downloadSuccess ? (
-              <form onSubmit={handleFreeDownloadSubmit} className="space-y-4">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-purple-900/30 text-purple-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-purple-500/20">
-                    <Download size={20} />
-                  </div>
-                  <h3 className="font-sans font-black uppercase text-sm tracking-tight text-white">Free Download</h3>
-                  <p className="text-neutral-400 text-[11px] mt-1">
-                    Enter your email to join our mailing list & immediately download <span className="text-purple-400 font-bold">{downloadTrack.title}</span> (Tagged Demo MP3).
-                  </p>
-                </div>
+            // Increment downloads count
+            const updated = {
+              ...downloadTrack,
+              downloads: (downloadTrack.downloads || 0) + 1
+            };
+            updateTrack(updated);
 
-                <div className="space-y-1.5">
-                  <label className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">Your Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="artist@example.com"
-                    value={downloadEmail}
-                    onChange={(e) => setDownloadEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 text-neutral-150 text-xs rounded-lg outline-none focus:border-purple-500 font-mono"
-                  />
-                </div>
+            // Track instant free downloading activation in Google Analytics
+            if (typeof window !== 'undefined' && (window as any).logFreeDownload) {
+              (window as any).logFreeDownload(downloadTrack.title);
+            }
 
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-sans font-bold text-xs uppercase rounded-lg transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_4px_12px_rgba(168,85,247,0.2)]"
-                >
-                  Confirm & Download
-                </button>
-              </form>
-            ) : (
-              <div className="text-center py-6 space-y-4 animate-fadeIn">
-                <div className="w-12 h-12 bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto">
-                  <Check size={22} />
-                </div>
-                <div>
-                  <h3 className="font-sans font-black uppercase text-sm tracking-tight text-emerald-400">Subscription Approved</h3>
-                  <p className="text-neutral-450 text-[10px] font-mono mt-1">Delivering standard download license...</p>
-                  <p className="text-neutral-400 text-[11px] mt-3">Connecting file stream for <span className="text-purple-400 font-bold">{downloadTrack.title}</span>.<br />Check your browser downloads stack.</p>
-                </div>
-              </div>
-            )}
+            // Real-time backend tracking: auto-trigger free acquisition ledger logging
+            apiFetch(`/api/v1/store/track-free-download?track_name=${encodeURIComponent(downloadTrack.title)}&buyer_email=${encodeURIComponent(email)}`, {
+              method: "POST"
+            }).catch(err => console.error("Error logging free download tracking:", err));
 
-          </div>
-        </div>
+            // Instant physical browser download anchor triggering
+            try {
+              const downloadUrl = downloadTrack.audioUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+              const link = document.createElement('a');
+              link.href = downloadUrl;
+              link.setAttribute('download', `${downloadTrack.title}_demo.mp3`);
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } catch (dlErr) {
+              console.error("Direct browser download trigger failed:", dlErr);
+            }
+          }}
+        />
       )}
 
           {/* Custom Solo Operator Contract Visual Banner */}

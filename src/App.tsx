@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
+import { AudioProvider } from './context/AudioContext';
 import { Storefront } from './components/Storefront';
 import { VibeVaultStudio } from './components/VibeVaultStudio';
 import { AudioPlayer } from './components/AudioPlayer';
@@ -14,6 +15,7 @@ import { ServicesView } from './components/ServicesView';
 import { ContactView } from './components/ContactView';
 import { IndustryPortalView } from './components/IndustryPortalView';
 import { MilestonePlaqueModal } from './components/MilestonePlaqueModal';
+import UnifiedArtistPortal from './components/UnifiedArtistPortal';
 import { Track } from './types';
 import { ShoppingCart, LayoutGrid, Radio, ShieldCheck, User } from 'lucide-react';
 
@@ -154,6 +156,14 @@ function AppContent() {
             Store
           </a>
           <a 
+            href="/artist-portal" 
+            onClick={(e) => { e.preventDefault(); setActiveTab('artist-portal'); }} 
+            style={{ color: activeTab === 'artist-portal' ? '#c084fc' : 'white', textDecoration: 'none', fontWeight: activeTab === 'artist-portal' ? 'bold' : 'normal' }}
+            className="hover:opacity-80 transition"
+          >
+            Artist Portal
+          </a>
+          <a 
             href="/industry-portal" 
             onClick={(e) => { e.preventDefault(); setActiveTab('industry-portal'); }} 
             style={{ color: activeTab === 'industry-portal' ? '#c084fc' : 'white', textDecoration: 'none' }}
@@ -254,6 +264,9 @@ function AppContent() {
         {activeTab === 'storefront' && (
           <Storefront onOpenLicenseModal={handleOpenLicenseModal} />
         )}
+        {activeTab === 'artist-portal' && (
+          <UnifiedArtistPortal />
+        )}
         {activeTab === 'studio' && (
           <VibeVaultStudio />
         )}
@@ -297,7 +310,9 @@ function AppContent() {
 export default function App() {
   return (
     <StoreProvider>
-      <AppContent />
+      <AudioProvider>
+        <AppContent />
+      </AudioProvider>
     </StoreProvider>
   );
 }

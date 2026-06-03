@@ -11,6 +11,7 @@ import { UltimateBeatUploader } from './UltimateBeatUploader';
 import { CloudTriggers } from './CloudTriggers';
 import { OwnerCoreConsole } from './OwnerCoreConsole';
 import { FinancialTelemetryStream } from './FinancialTelemetryStream';
+import TransactionLedger from './TransactionLedger';
 
 export const VibeVaultStudio: React.FC = () => {
   const {
@@ -28,6 +29,57 @@ export const VibeVaultStudio: React.FC = () => {
     payoutMethod,
     setPayoutMethod
   } = useStore();
+
+  // Dynamic real-time server telemetry/ledger states
+  const [metrics, setMetrics] = useState({
+    totalSales: 0,
+    licensesDistributed: 0,
+    verifiedAcquisitions: 0
+  });
+  const [ledgerItems, setLedgerItems] = useState<any[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  const fetchLiveMetrics = async () => {
+    try {
+      const response = await fetch('/api/analytics/live-telemetry');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.metrics) {
+          setMetrics(data.metrics);
+        }
+      }
+    } catch (error) {
+      console.error("Telemetry query failed in studio dashboard", error);
+    }
+  };
+
+  const fetchLiveLedger = async () => {
+    try {
+      const response = await fetch('/api/transactions/live-stream');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.ledgerItems) {
+          setLedgerItems(data.ledgerItems);
+        }
+      }
+    } catch (error) {
+      console.error("Ledger query failed in studio dashboard", error);
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveMetrics();
+    fetchLiveLedger();
+
+    const interval = setInterval(() => {
+      fetchLiveMetrics();
+      fetchLiveLedger();
+    }, 5050);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const [notifications, setNotifications] = useState<string[]>([]);
   
@@ -263,9 +315,11 @@ export const VibeVaultStudio: React.FC = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/[0.01] rounded-full blur-2xl pointer-events-none" />
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Total Accumulated Store Sales</span>
-                  <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 font-mono text-[10px] rounded flex items-center gap-0.5">+18.4%</span>
+                  <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 font-mono text-[10px] rounded flex items-center gap-0.5">LIVE</span>
                 </div>
-                <div className="text-3xl font-mono text-white font-black leading-tight tracking-tight">$1,284.42</div>
+                <div className="text-3xl font-mono text-white font-black leading-tight tracking-tight">
+                  {metricsLoading ? "0.00" : "$" + metrics.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
 
                 {/* Handcrafted glowing SVG Line graph curve (cyan-to-emerald style) */}
                 <div className="w-full h-12 mt-4">
@@ -276,8 +330,17 @@ export const VibeVaultStudio: React.FC = () => {
                         <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
                       </linearGradient>
                     </defs>
-                    <path d="M0,24 C10,18 15,10 25,12 C35,14 45,5 55,8 C65,11 75,2 85,4 C95,6 100,2 100,2" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
-                    <path d="M0,24 C10,18 15,10 25,12 C35,14 45,5 55,8 C65,11 75,2 85,4 C95,6 100,2 100,2 L100,24 L0,24 Z" fill="url(#salesGrad)" />
+                    <path 
+                      d={metrics.totalSales > 0 ? "M0,24 C10,18 15,10 25,12 C35,14 45,5 55,8 C65,11 75,2 85,4 C95,6 100,2 100,2" : "M0,24 L100,24"} 
+                      fill="none" 
+                      stroke="#10b981" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                    />
+                    <path 
+                      d={metrics.totalSales > 0 ? "M0,24 C10,18 15,10 25,12 C35,14 45,5 55,8 C65,11 75,2 85,4 C95,6 100,2 100,2 L100,24 L0,24 Z" : "M0,24 L100,24 L100,24 L0,24 Z"} 
+                      fill="url(#salesGrad)" 
+                    />
                   </svg>
                 </div>
               </div>
@@ -287,9 +350,11 @@ export const VibeVaultStudio: React.FC = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/[0.01] rounded-full blur-2xl pointer-events-none" />
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Active Licenses Distributed</span>
-                  <span className="px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 font-mono text-[10px] rounded">+12</span>
+                  <span className="px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 font-mono text-[10px] rounded">SYNC</span>
                 </div>
-                <div className="text-3xl font-mono text-white font-black leading-tight tracking-tight">42 UNITS</div>
+                <div className="text-3xl font-mono text-white font-black leading-tight tracking-tight">
+                  {metricsLoading ? "0 UNITS" : `${metrics.licensesDistributed} UNITS`}
+                </div>
 
                 {/* Cyber style graph bar/curve */}
                 <div className="w-full h-12 mt-4">
@@ -300,8 +365,17 @@ export const VibeVaultStudio: React.FC = () => {
                         <stop offset="100%" stopColor="#06b6d4" stopOpacity="0"/>
                       </linearGradient>
                     </defs>
-                    <path d="M0,24 L10,20 L20,21 L30,14 L40,16 L50,8 L60,9 L70,3 L80,5 L90,2 L100,2" fill="none" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" />
-                    <path d="M0,24 L10,20 L20,21 L30,14 L40,16 L50,8 L60,9 L70,3 L80,5 L90,2 L100,2 L100,24 L0,24 Z" fill="url(#licGrad)" />
+                    <path 
+                      d={metrics.licensesDistributed > 0 ? "M0,24 L10,20 L20,21 L30,14 L40,16 L50,8 L60,9 L70,3 L80,5 L90,2 L100,2" : "M0,24 L100,24"} 
+                      fill="none" 
+                      stroke="#06b6d4" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                    />
+                    <path 
+                      d={metrics.licensesDistributed > 0 ? "M0,24 L10,20 L20,21 L30,14 L40,16 L50,8 L60,9 L70,3 L80,5 L90,2 L100,2 L100,24 L0,24 Z" : "M0,24 L100,24 L100,24 L0,24 Z"} 
+                      fill="url(#licGrad)" 
+                    />
                   </svg>
                 </div>
               </div>
@@ -311,9 +385,11 @@ export const VibeVaultStudio: React.FC = () => {
                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/[0.01] rounded-full blur-2xl pointer-events-none" />
                 <div className="flex justify-between items-center mb-4">
                   <span className="font-mono text-[10px] text-neutral-400 uppercase tracking-widest font-bold">Verified Download Acquisitions</span>
-                  <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 font-mono text-[10px] rounded">+2</span>
+                  <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 font-mono text-[10px] rounded">NEW</span>
                 </div>
-                <div className="text-3xl font-mono text-white font-black leading-tight tracking-tight">12 BINARY</div>
+                <div className="text-3xl font-mono text-white font-black leading-tight tracking-tight">
+                  {metricsLoading ? "0 BINARY" : `${metrics.verifiedAcquisitions} BINARY`}
+                </div>
 
                 {/* Wave grid vector */}
                 <div className="w-full h-12 mt-4">
@@ -324,8 +400,17 @@ export const VibeVaultStudio: React.FC = () => {
                         <stop offset="100%" stopColor="#a855f7" stopOpacity="0"/>
                       </linearGradient>
                     </defs>
-                    <path d="M0,22 C15,22 25,18 35,16 C45,14 55,2 65,3 C75,4 85,15 100,1" fill="none" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" />
-                    <path d="M0,22 C15,22 25,18 35,16 C45,14 55,2 65,3 C75,4 85,15 100,1 L100,24 L0,24 Z" fill="url(#binGrad)" />
+                    <path 
+                      d={metrics.verifiedAcquisitions > 0 ? "M0,22 C15,22 25,18 35,16 C45,14 55,2 65,3 C75,4 85,15 100,1" : "M0,24 L100,24"} 
+                      fill="none" 
+                      stroke="#a855f7" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                    />
+                    <path 
+                      d={metrics.verifiedAcquisitions > 0 ? "M0,22 C15,22 25,18 35,16 C45,14 55,2 65,3 C75,4 85,15 100,1 L100,24 L0,24 Z" : "M0,24 L100,24 L100,24 L0,24 Z"} 
+                      fill="url(#binGrad)" 
+                    />
                   </svg>
                 </div>
               </div>
@@ -339,7 +424,7 @@ export const VibeVaultStudio: React.FC = () => {
                   <DollarSign size={15} className="text-purple-400" />
                   <h3 className="font-sans font-bold text-xs uppercase text-neutral-300 tracking-wider">Transaction Ledger</h3>
                 </div>
-                <span className="font-mono text-[9px] text-neutral-500 uppercase">{sales.length} COMPLETED TRANSACTIONS</span>
+                <span className="font-mono text-[9px] text-neutral-500 uppercase">{metricsLoading ? 0 : ledgerItems.length} COMPLETED TRANSACTIONS</span>
               </div>
 
               <div className="overflow-x-auto">
@@ -354,19 +439,26 @@ export const VibeVaultStudio: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-900/40 text-neutral-300">
-                    {sales.map((sale) => (
-                      <tr key={sale.id} className="hover:bg-neutral-900/10">
+                    {ledgerItems.map((sale, idx) => (
+                      <tr key={sale._id || idx} className="hover:bg-neutral-900/10">
                         <td className="py-3 font-semibold">{sale.trackTitle}</td>
                         <td className="py-3">
-                          <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 rounded font-mono text-[9px] uppercase">{sale.licenseType}</span>
+                          <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 rounded font-mono text-[9px] uppercase">{sale.licenseClass}</span>
                         </td>
                         <td className="py-3 font-mono text-[11px] text-neutral-400">{sale.buyerEmail}</td>
-                        <td className="py-3 font-mono font-bold text-cyan-400">${sale.price.toFixed(2)}</td>
+                        <td className="py-3 font-mono font-bold text-cyan-400">${sale.payout.toFixed(2)}</td>
                         <td className="py-3 font-mono text-[10px] text-neutral-500">
                           {new Date(sale.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
                         </td>
                       </tr>
                     ))}
+                    {!metricsLoading && ledgerItems.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-neutral-500 font-mono text-[11px]">
+                          NO TRANSACTIONS RECORDED YET ON CURRENT SESSION STREAM
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1085,8 +1177,9 @@ export const VibeVaultStudio: React.FC = () => {
             </div>
 
             {/* Financial & Active User Telemetry Stream */}
-            <div className="p-6 rounded-xl bg-neutral-950 border border-neutral-900">
+            <div className="p-6 rounded-xl bg-neutral-950 border border-neutral-900 space-y-6">
               <FinancialTelemetryStream />
+              <TransactionLedger />
             </div>
 
           </div>

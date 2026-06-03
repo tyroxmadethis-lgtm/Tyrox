@@ -10,6 +10,10 @@ class LocalFileDb {
   private mediaPath = path.join(process.cwd(), 'public', 'local_media.json');
   private ordersPath = path.join(process.cwd(), 'public', 'local_orders.json');
 
+  private transactionsPath = path.join(process.cwd(), 'public', 'local_transactions.json');
+  private freeDownloadsPath = path.join(process.cwd(), 'public', 'local_free_downloads.json');
+  private contractsPath = path.join(process.cwd(), 'public', 'local_contracts.json');
+
   constructor() {
     this.ensureInitialized();
   }
@@ -43,6 +47,18 @@ class LocalFileDb {
       ];
       fs.writeFileSync(this.ordersPath, JSON.stringify(defaultOrders, null, 2), 'utf-8');
     }
+
+    if (!fs.existsSync(this.transactionsPath)) {
+      fs.writeFileSync(this.transactionsPath, JSON.stringify([], null, 2), 'utf-8');
+    }
+
+    if (!fs.existsSync(this.freeDownloadsPath)) {
+      fs.writeFileSync(this.freeDownloadsPath, JSON.stringify([], null, 2), 'utf-8');
+    }
+
+    if (!fs.existsSync(this.contractsPath)) {
+      fs.writeFileSync(this.contractsPath, JSON.stringify([], null, 2), 'utf-8');
+    }
   }
 
   private readMedia(): any[] {
@@ -68,6 +84,31 @@ class LocalFileDb {
       fs.writeFileSync(this.ordersPath, JSON.stringify(orders, null, 2), 'utf-8');
     } catch (err) {
       console.error("Error writing orders json db:", err);
+    }
+  }
+
+  private readCollection(name: string): any[] {
+    this.ensureInitialized();
+    const filePath = name === 'transactions' ? this.transactionsPath :
+                     name === 'free_downloads' ? this.freeDownloadsPath :
+                     name === 'contracts' ? this.contractsPath : null;
+    if (!filePath) return [];
+    try {
+      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    } catch {
+      return [];
+    }
+  }
+
+  private writeCollection(name: string, items: any[]) {
+    const filePath = name === 'transactions' ? this.transactionsPath :
+                     name === 'free_downloads' ? this.freeDownloadsPath :
+                     name === 'contracts' ? this.contractsPath : null;
+    if (!filePath) return;
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(items, null, 2), 'utf-8');
+    } catch (err) {
+      console.error(`Error writing ${name} json db:`, err);
     }
   }
 
@@ -99,6 +140,54 @@ class LocalFileDb {
           }
           this.writeOrders(updated);
           return { modifiedCount: 1 };
+        }
+      };
+    } else if (name === 'transactions' || name === 'free_downloads' || name === 'contracts') {
+      return {
+        countDocuments: async () => {
+          return this.readCollection(name).length;
+        },
+        insertOne: async (doc: any) => {
+          const items = this.readCollection(name);
+          const newDoc = { _id: doc._id || Math.random().toString(36).substring(7), ...doc };
+          items.push(newDoc);
+          this.writeCollection(name, items);
+          return { insertedId: newDoc._id };
+        },
+        insertMany: async (docs: any[]) => {
+          const items = this.readCollection(name);
+          const newDocs = docs.map(doc => ({ _id: doc._id || Math.random().toString(36).substring(7), ...doc }));
+          items.push(...newDocs);
+          this.writeCollection(name, items);
+          return { insertedCount: newDocs.length };
+        },
+        deleteMany: async () => {
+          this.writeCollection(name, []);
+          return { deletedCount: 999 };
+        },
+        find: (query = {}) => {
+          let items = this.readCollection(name);
+          // Simple mock chains
+          const chain = {
+            sort: () => chain,
+            limit: () => chain,
+            toArray: async () => items
+          };
+          return chain;
+        },
+        aggregate: (pipeline: any[] = []) => {
+          const items = this.readCollection(name);
+          // Specifically handle payload total payout aggregation
+          let total = 0;
+          items.forEach(item => {
+            const payout = parseFloat(item.payout || 0);
+            if (!isNaN(payout)) {
+              total += payout;
+            }
+          });
+          return {
+            toArray: async () => [{ _id: null, total }]
+          };
         }
       };
     }

@@ -308,9 +308,20 @@ async function startServer() {
         const db = await connectToDatabase();
         if (db) {
           await db.collection("contracts").insertOne(contractManifest);
+
+          // Also log a transaction record into the live transactions ledger for enterprise stats
+          const transactionDoc = {
+            trackTitle: trackDoc.title,
+            licenseClass: "Exclusive Absolute Rights",
+            buyerEmail: buyerEmail,
+            payout: exclusivePrice,
+            timestamp: new Date()
+          };
+          await db.collection("transactions").insertOne(transactionDoc);
+          console.log("Successfully logged transaction mapping to database transactions ledger.");
         }
       } catch (dbErr) {
-        console.warn("Failed saving contract manifest to mongo collection. Proceeding with in-memory execution...", dbErr);
+        console.warn("Failed saving contract manifest or transaction log. Proceeding with in-memory execution...", dbErr);
       }
 
       // 6. Respond with the secure audio download URLs and contract manifest
@@ -324,6 +335,146 @@ async function startServer() {
     } catch (error: any) {
       console.error("Platform checkout engine failure:", error);
       return res.status(500).json({ error: error.message || "Checkout execution error" });
+    }
+  });
+
+  // API Router - Retrieve Live Transactions Stream (MongoDB Ledger)
+  app.get("/api/transactions/live-stream", async (req, res) => {
+    try {
+      const db = await connectToDatabase();
+      if (!db) {
+        return res.status(500).json({ error: "Database connection failed" });
+      }
+
+      const ledgerItems = await db.collection("transactions")
+        .find({})
+        .sort({ timestamp: -1 })
+        .limit(50)
+        .toArray();
+
+      return res.status(200).json({
+        success: true,
+        ledgerItems
+      });
+    } catch (error: any) {
+      console.error("Ledger acquisition failed:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // API Router - Retrieve Enterprise Marketplace Aggregate Metrics
+  app.get("/api/transactions/metrics", async (req, res) => {
+    try {
+      const db = await connectToDatabase();
+      if (!db) {
+        return res.status(500).json({ error: "Failed to connect to database" });
+      }
+
+      // Calculate genuine total revenue from real completed sales ledger transactions
+      const salesAgg = await db.collection('transactions').aggregate([
+        { $group: { _id: null, total: { $sum: "$payout" } } }
+      ]).toArray();
+      const genuineSales = salesAgg[0]?.total || 0;
+
+      // Count absolute unique active download licenses distributed
+      const activeLicensesCount = await db.collection('transactions').countDocuments({});
+
+      // Count genuine free download actions triggered manually by real humans
+      const verifiedAcquisitionsCount = await db.collection('free_downloads').countDocuments({});
+
+      return res.status(200).json({
+        success: true,
+        metrics: {
+          totalSales: genuineSales,
+          licensesDistributed: activeLicensesCount,
+          verifiedAcquisitions: verifiedAcquisitionsCount
+        }
+      });
+    } catch (error: any) {
+      console.error("Failed to query aggregates:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // API Router - Live Analytics Telemetry Metrics
+  app.get("/api/analytics/live-telemetry", async (req, res) => {
+    try {
+      const db = await connectToDatabase();
+      if (!db) {
+        return res.status(500).json({ error: "Failed to connect to database" });
+      }
+
+      // 1. Calculate genuine total revenue from real completed sales ledger transactions
+      const salesAgg = await db.collection('transactions').aggregate([
+        { $group: { _id: null, total: { $sum: "$payout" } } }
+      ]).toArray();
+      const genuineSales = salesAgg[0]?.total || 0;
+
+      // 2. Count absolute unique active download licenses distributed
+      const activeLicensesCount = await db.collection('transactions').countDocuments({});
+
+      // 3. Count genuine free download actions triggered manually by real humans
+      const verifiedAcquisitionsCount = await db.collection('free_downloads').countDocuments({});
+
+      return res.status(200).json({
+        success: true,
+        metrics: {
+          totalSales: genuineSales,
+          licensesDistributed: activeLicensesCount,
+          verifiedAcquisitions: verifiedAcquisitionsCount
+        }
+      });
+    } catch (error: any) {
+      console.error("Telemetry query failed:", error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // API Router - Marketing Mailing List & Free Download Gate lock
+  app.post("/api/marketing/mailing-list-lock", async (req, res) => {
+    try {
+      const { email, trackId } = req.body;
+      if (!email || !trackId) {
+        return res.status(400).json({ error: "Missing required fields: email and trackId" });
+      }
+
+      const db = await connectToDatabase();
+      if (!db) {
+        return res.status(500).json({ error: "Database offline" });
+      }
+
+      let trackTitle = "Premium Beat Demo";
+      try {
+        const trackDoc = await Track.findById(trackId);
+        if (trackDoc) {
+          trackTitle = trackDoc.title;
+        }
+      } catch (trackErr) {
+        console.warn("Mongoose Track lookup skipped or failed:", trackErr);
+      }
+
+      // Save a record into free downloads
+      await db.collection("free_downloads").insertOne({
+        email,
+        trackId,
+        trackTitle,
+        timestamp: new Date()
+      });
+
+      // Update the tracks collection downloads count in database
+      try {
+        await Track.findByIdAndUpdate(trackId, { $inc: { downloads: 1 } });
+      } catch (incErr) {
+        console.warn("Failed database downloads update:", incErr);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Mailing list subscription and free download registered!"
+      });
+    } catch (error: any) {
+      console.error("Mailing-list lock failed:", error);
+      return res.status(500).json({ error: error.message });
     }
   });
 

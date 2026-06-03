@@ -24,7 +24,7 @@ interface StoreContextType {
   playbackDurationStr: string;
   
   // Navigation
-  activeTab: 'storefront' | 'studio' | 'about' | 'services' | 'contact' | 'industry-portal';
+  activeTab: 'storefront' | 'studio' | 'about' | 'services' | 'contact' | 'industry-portal' | 'artist-portal';
   adminSection: string;
   
   // Functions
@@ -50,7 +50,7 @@ interface StoreContextType {
   prevTrack: () => void;
   
   // Navigation controls
-  setActiveTab: (tab: 'storefront' | 'studio') => void;
+  setActiveTab: (tab: 'storefront' | 'studio' | 'about' | 'services' | 'contact' | 'industry-portal' | 'artist-portal') => void;
   setAdminSection: (section: string) => void;
   
   // Settings / Admin Metrics
@@ -286,7 +286,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [duration, setDuration] = useState(180);
 
   // Layout navigation
-  const [activeTab, setActiveTabState] = useState<'storefront' | 'studio' | 'about' | 'services' | 'contact' | 'industry-portal'>('storefront');
+  const [activeTab, setActiveTabState] = useState<'storefront' | 'studio' | 'about' | 'services' | 'contact' | 'industry-portal' | 'artist-portal'>('storefront');
   const [adminSection, setAdminSection] = useState('sales'); // default sub-section matches Sales & Finances in screenshot!
 
   // Active coupon
@@ -564,7 +564,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const playbackTime = formatTime(progress);
   const playbackDurationStr = formatTime(duration);
 
-  const setActiveTab = (tab: 'storefront' | 'studio' | 'about' | 'services' | 'contact' | 'industry-portal') => {
+  const setActiveTab = (tab: 'storefront' | 'studio' | 'about' | 'services' | 'contact' | 'industry-portal' | 'artist-portal') => {
     // If we transition to storefront, we continue playing, same for studio
     setActiveTabState(tab);
   };
