@@ -71,6 +71,40 @@ async function startServer() {
     }
   );
 
+  // API Router - Upload Assets Simultaneously (supports profilePic and topBanner)
+  app.post(
+    "/api/user/upload-assets",
+    upload.fields([
+      { name: "profilePic", maxCount: 1 },
+      { name: "topBanner", maxCount: 1 },
+    ]),
+    (req, res) => {
+      try {
+        console.log("Server received simultaneous upload-assets:", req.body);
+        const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+        
+        const responseData: any = {
+          success: true,
+          message: "Profile picture and banner uploaded simultaneously successfully!",
+        };
+
+        if (filesMap) {
+          if (filesMap["profilePic"] && filesMap["profilePic"][0]) {
+            responseData.profilePicPath = "/static/images/tyrox_profile.jpg";
+          }
+          if (filesMap["topBanner"] && filesMap["topBanner"][0]) {
+            responseData.topBannerPath = "/banner.jpg";
+          }
+        }
+
+        res.json(responseData);
+      } catch (error: any) {
+        console.error("Upload assets simultaneously error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    }
+  );
+
   // API Router - Physical Fulfillment
   app.post("/api/orders/physical-fulfillment", async (req, res) => {
     try {

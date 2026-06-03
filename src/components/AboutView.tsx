@@ -52,6 +52,11 @@ export const AboutView: React.FC = () => {
   const [profileFile, setProfileFile] = React.useState<File | null>(null);
   const [bannerFile, setBannerFile] = React.useState<File | null>(null);
 
+  // Preview URLs so the user sees their selection instantly on screen
+  const [profilePreview, setProfilePreview] = React.useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = React.useState<string | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+
   const toggleEditMode = () => {
     if (!editMode) {
       setTempBioText(bioText);
@@ -59,95 +64,42 @@ export const AboutView: React.FC = () => {
       setEditMode(true);
     } else {
       setEditMode(false);
+      // Cancel changes: remove any temporary previews
+      if (profilePreview) {
+        URL.revokeObjectURL(profilePreview);
+        setProfilePreview(null);
+      }
+      if (bannerPreview) {
+        URL.revokeObjectURL(bannerPreview);
+        setBannerPreview(null);
+      }
+      setProfileFile(null);
+      setBannerFile(null);
     }
   };
 
-  const handleProfileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setProfileFile(file);
-
-    if (!file.type.startsWith("image/")) {
-      alert("File must be an image.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target?.result as string;
-      
-      // Save locally (temporary fast feedback)
-      localStorage.setItem('tyrox_profile_img', dataUrl);
-      setProfileImg(dataUrl);
-
-      // Sync across any other active components via custom event
-      const syncEventTmp = new CustomEvent('tyrox-profile-updated', { detail: dataUrl });
-      window.dispatchEvent(syncEventTmp);
-
-      // Real POST form upload backend call
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch("/admin/about/upload-photo", { method: "POST", body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            const finalPath = `${data.filePath}?t=${Date.now()}`;
-            localStorage.setItem('tyrox_profile_img', finalPath);
-            setProfileImg(finalPath);
-            const syncEvent = new CustomEvent('tyrox-profile-updated', { detail: finalPath });
-            window.dispatchEvent(syncEvent);
-          }
-        }
-      } catch (err) {
-        console.error("Profile photo upload error details:", err);
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        alert("File must be an image.");
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      setProfileFile(file);
+      setProfilePreview(URL.createObjectURL(file)); // Show preview instantly
+    }
   };
 
-  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setBannerFile(file);
-
-    if (!file.type.startsWith("image/")) {
-      alert("File must be an image.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target?.result as string;
-      
-      // Save locally (temporary fast feedback)
-      localStorage.setItem('tyrox_banner_img', dataUrl);
-      setBannerImg(dataUrl);
-
-      // Sync across standard top visual container immediately
-      const syncEventTmp = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
-      window.dispatchEvent(syncEventTmp);
-
-      // Real POST form upload backend call
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch("/admin/about/upload-banner", { method: "POST", body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            const finalPath = `${data.filePath}?t=${Date.now()}`;
-            localStorage.setItem('tyrox_banner_img', finalPath);
-            setBannerImg(finalPath);
-            const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: finalPath });
-            window.dispatchEvent(syncEvent);
-          }
-        }
-      } catch (err) {
-        console.error("Banner upload error details:", err);
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        alert("File must be an image.");
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      setBannerFile(file);
+      setBannerPreview(URL.createObjectURL(file)); // Show preview instantly
+    }
   };
 
   const [isDragActive, setIsDragActive] = React.useState(false);
@@ -162,57 +114,31 @@ export const AboutView: React.FC = () => {
     }
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
 
     const file = e.dataTransfer?.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      alert("File must be an image.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const dataUrl = event.target?.result as string;
-      
-      // Save locally (temporary fast feedback)
-      localStorage.setItem('tyrox_banner_img', dataUrl);
-      setBannerImg(dataUrl);
-
-      // Sync across standard top visual container immediately
-      const syncEventTmp = new CustomEvent('tyrox-banner-updated', { detail: dataUrl });
-      window.dispatchEvent(syncEventTmp);
-
-      // Real POST form upload backend call
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch("/admin/about/upload-banner", { method: "POST", body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            const finalPath = `${data.filePath}?t=${Date.now()}`;
-            localStorage.setItem('tyrox_banner_img', finalPath);
-            setBannerImg(finalPath);
-            const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: finalPath });
-            window.dispatchEvent(syncEvent);
-          }
-        }
-      } catch (err) {
-        console.error("Drag banner upload error details:", err);
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        alert("File must be an image.");
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      setBannerFile(file);
+      setBannerPreview(URL.createObjectURL(file)); // Show preview instantly
+    }
   };
 
   const handleResetBanner = () => {
     const defaultBanner = "/banner.jpg";
     localStorage.setItem('tyrox_banner_img', defaultBanner);
     setBannerImg(defaultBanner);
+    setBannerFile(null);
+    if (bannerPreview) {
+      URL.revokeObjectURL(bannerPreview);
+      setBannerPreview(null);
+    }
     
     const syncEvent = new CustomEvent('tyrox-banner-updated', { detail: defaultBanner });
     window.dispatchEvent(syncEvent);
@@ -222,6 +148,11 @@ export const AboutView: React.FC = () => {
     const defaultProfile = "/static/images/tyrox_profile.jpg";
     localStorage.setItem('tyrox_profile_img', defaultProfile);
     setProfileImg(defaultProfile);
+    setProfileFile(null);
+    if (profilePreview) {
+      URL.revokeObjectURL(profilePreview);
+      setProfilePreview(null);
+    }
     
     const syncEvent = new CustomEvent('tyrox-profile-updated', { detail: defaultProfile });
     window.dispatchEvent(syncEvent);
@@ -229,6 +160,7 @@ export const AboutView: React.FC = () => {
 
   const handleFormSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    setUploading(true);
     
     const formData = new FormData();
     
@@ -243,14 +175,14 @@ export const AboutView: React.FC = () => {
     formData.append('youtube', tempSocials.youtube);
 
     try {
-      const response = await fetch('/api/user/update-profile', {
+      const response = await fetch('/api/user/upload-assets', {
         method: 'POST',
-        body: formData, // Browser automatically sets 'multipart/form-data' header
+        body: formData, // Browser automatically formats this as a single multipart request
       });
       
+      const data = await response.json();
+      
       if (response.ok) {
-        const data = await response.json();
-        
         // Update states to reflect changes
         setBioText(tempBioText);
         setSocials(tempSocials);
@@ -282,14 +214,28 @@ export const AboutView: React.FC = () => {
           window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: finalBanner }));
         }
 
+        // Revoke Object URLs to prevent memory leak
+        if (profilePreview) {
+          URL.revokeObjectURL(profilePreview);
+          setProfilePreview(null);
+        }
+        if (bannerPreview) {
+          URL.revokeObjectURL(bannerPreview);
+          setBannerPreview(null);
+        }
+        setProfileFile(null);
+        setBannerFile(null);
+
         setEditMode(false);
-        alert('Profile and banner updated successfully!');
+        alert('Profile picture and banner uploaded simultaneously successfully!');
       } else {
-        alert('Failed to update profile and banner.');
+        alert(`Upload error: ${data.message || data.error || 'Failed to update profile and banner.'}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload failed:', error);
-      alert('Upload failed: ' + error);
+      alert('Upload failed: ' + error.message);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -304,7 +250,7 @@ export const AboutView: React.FC = () => {
       <div 
         className="relative rounded-2xl overflow-hidden h-44 sm:h-60 md:h-72 w-full shadow-2xl border border-neutral-900/80 flex items-end"
         style={{
-          backgroundImage: `url('${bannerImg}')`,
+          backgroundImage: `url('${bannerPreview || bannerImg}')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
@@ -392,7 +338,7 @@ export const AboutView: React.FC = () => {
                   id="folder-preview-thumbnail"
                   className="relative h-16 rounded-lg overflow-hidden border border-neutral-800/80 shadow bg-neutral-950"
                   style={{
-                    backgroundImage: `url('${bannerImg}')`,
+                    backgroundImage: `url('${bannerPreview || bannerImg}')`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                   }}
@@ -450,7 +396,7 @@ export const AboutView: React.FC = () => {
                 <div className="shrink-0">
                   <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#ff0055] bg-neutral-950 shadow-[0_0_12px_rgba(255,0,85,0.3)]">
                     <img 
-                      src={profileImg} 
+                      src={profilePreview || profileImg} 
                       alt="Artist avatar" 
                       className="w-full h-full object-cover"
                     />
@@ -474,7 +420,7 @@ export const AboutView: React.FC = () => {
       {/* 1. PROFILE BANNER SECTION */}
       <div style={{ backgroundColor: '#111', color: 'white', maxWidth: '800px', margin: '0 auto', borderRadius: '8px', overflow: 'hidden', position: 'relative' }} className="w-full border border-neutral-800 shadow-2xl">
         
-        <div style={{ backgroundImage: `linear-gradient(135deg, rgba(17, 18, 22, 0.75), rgba(0, 0, 0, 0.9)), url('${bannerImg}')`, backgroundSize: 'cover', backgroundPosition: 'center', padding: '40px 20px', textAlign: 'center', borderBottom: '2px solid #ff0055', position: 'relative' }}>
+        <div style={{ backgroundImage: `linear-gradient(135deg, rgba(17, 18, 22, 0.75), rgba(0, 0, 0, 0.9)), url('${bannerPreview || bannerImg}')`, backgroundSize: 'cover', backgroundPosition: 'center', padding: '40px 20px', textAlign: 'center', borderBottom: '2px solid #ff0055', position: 'relative' }}>
           
           {/* Admin Controller Toggle */}
           <button 
@@ -490,7 +436,7 @@ export const AboutView: React.FC = () => {
           <div style={{ position: 'relative', width: '180px', height: '180px', margin: '0 auto 15px' }} className="group">
             <img 
               id="profileImg" 
-              src={profileImg} 
+              src={profilePreview || profileImg} 
               alt="Tyrox" 
               style={{ width: '100%', height: '100%', borderRadius: '50%', border: '3px solid #ff0055', objectFit: 'cover' }}
               className="shadow-[0_0_20px_rgba(255,0,85,0.4)] relative"
@@ -662,10 +608,11 @@ export const AboutView: React.FC = () => {
               
               <button 
                 onClick={saveAllChanges}
-                style={{ backgroundColor: '#00ff66', color: 'black', border: 'none', padding: '10px 20px', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', width: '100%' }}
-                className="hover:opacity-90 active:scale-95 transition-all text-sm uppercase tracking-wide font-mono"
+                disabled={uploading}
+                style={{ backgroundColor: uploading ? '#2c3e2f' : '#00ff66', color: uploading ? '#666' : 'black', border: 'none', padding: '10px 20px', cursor: uploading ? 'not-allowed' : 'pointer', borderRadius: '4px', fontWeight: 'bold', width: '100%' }}
+                className="hover:opacity-90 active:scale-95 transition-all text-sm uppercase tracking-wide font-mono disabled:opacity-50"
               >
-                Save Global Setup
+                {uploading ? 'Uploading Simultaneously...' : 'Save Global Setup'}
               </button>
             </div>
           )}
