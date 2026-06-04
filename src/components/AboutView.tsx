@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw, Music } from 'lucide-react';
 import { z } from "zod";
+import { upload } from '@vercel/blob/client';
 
 export const globalSetupSchema = z.object({
   bio: z.string().max(1000),
@@ -82,6 +83,10 @@ export const AboutView: React.FC = () => {
   const [profileFile, setProfileFile] = React.useState<File | null>(null);
   const [bannerFile, setBannerFile] = React.useState<File | null>(null);
 
+  // Secure client-side Vercel Blob uploaded string URLs mapping
+  const [uploadedAvatarUrl, setUploadedAvatarUrl] = React.useState<string | null>(null);
+  const [uploadedBannerUrl, setUploadedBannerUrl] = React.useState<string | null>(null);
+
   // Preview URLs so the user sees their selection instantly on screen
   const [profilePreview, setProfilePreview] = React.useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = React.useState<string | null>(null);
@@ -94,7 +99,7 @@ export const AboutView: React.FC = () => {
       setEditMode(true);
     } else {
       setEditMode(false);
-      // Cancel changes: remove any temporary previews
+      // Cancel changes: remove any temporary previews and uploaded links
       if (profilePreview) {
         URL.revokeObjectURL(profilePreview);
         setProfilePreview(null);
@@ -105,30 +110,64 @@ export const AboutView: React.FC = () => {
       }
       setProfileFile(null);
       setBannerFile(null);
+      setUploadedAvatarUrl(null);
+      setUploadedBannerUrl(null);
     }
   };
 
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
         alert("File must be an image.");
         return;
       }
-      setProfileFile(file);
-      setProfilePreview(URL.createObjectURL(file)); // Show preview instantly
+      setUploading(true);
+      try {
+        console.log("Initiating client-side avatar upload via Vercel Blob:", file.name);
+        const newBlob = await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/avatar/upload',
+        });
+        
+        console.log("Direct Vercel Blob avatar upload successful!", newBlob.url);
+        setUploadedAvatarUrl(newBlob.url);
+        setProfilePreview(newBlob.url);
+        setProfileFile(file);
+      } catch (error: any) {
+        console.error("Direct avatar upload failed:", error);
+        alert(`Upload error: ${error.message || "An unknown direct upload issue occurred."}`);
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
-  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith("image/")) {
         alert("File must be an image.");
         return;
       }
-      setBannerFile(file);
-      setBannerPreview(URL.createObjectURL(file)); // Show preview instantly
+      setUploading(true);
+      try {
+        console.log("Initiating client-side banner upload via Vercel Blob:", file.name);
+        const newBlob = await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/avatar/upload',
+        });
+        
+        console.log("Direct Vercel Blob banner upload successful!", newBlob.url);
+        setUploadedBannerUrl(newBlob.url);
+        setBannerPreview(newBlob.url);
+        setBannerFile(file);
+      } catch (error: any) {
+        console.error("Direct banner upload failed:", error);
+        alert(`Upload error: ${error.message || "An unknown direct upload issue occurred."}`);
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
@@ -144,7 +183,7 @@ export const AboutView: React.FC = () => {
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
@@ -155,8 +194,24 @@ export const AboutView: React.FC = () => {
         alert("File must be an image.");
         return;
       }
-      setBannerFile(file);
-      setBannerPreview(URL.createObjectURL(file)); // Show preview instantly
+      setUploading(true);
+      try {
+        console.log("Initiating client-side banner upload via drop through Vercel Blob:", file.name);
+        const newBlob = await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/avatar/upload',
+        });
+        
+        console.log("Direct Vercel Blob dropped banner upload successful!", newBlob.url);
+        setUploadedBannerUrl(newBlob.url);
+        setBannerPreview(newBlob.url);
+        setBannerFile(file);
+      } catch (error: any) {
+        console.error("Direct dropped banner upload failed:", error);
+        alert(`Upload error: ${error.message || "An unknown direct upload issue occurred."}`);
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
@@ -244,25 +299,9 @@ export const AboutView: React.FC = () => {
 
   const handleSaveChanges = async (formData: any) => {
     // --- STEP 1: INITIALIZE IMAGE STRINGS ---
-    // Start with whatever images are already successfully saved
-    let finalizedAvatarUrl = formData.existingAvatarUrl || "";
-    let finalizedBannerUrl = formData.existingBannerUrl || "";
-
-    // --- STEP 2: WAIT FOR UPLOADS TO FINISH ---
-    // This stops the text from saving while the green "Uploading Simultaneously" is running
-    if (formData.newAvatarFile || formData.newBannerFile) {
-      console.log("Images detected. Pausing form save until upload completes...");
-      
-      // Execute your upload function and completely wait for it to return actual string URLs
-      const uploadResponse = await uploadMediaAssets(
-        formData.newAvatarFile,
-        formData.newBannerFile
-      );
-
-      // Assign the freshly generated web string links
-      if (uploadResponse?.avatarUrl) finalizedAvatarUrl = uploadResponse.avatarUrl;
-      if (uploadResponse?.bannerUrl) finalizedBannerUrl = uploadResponse.bannerUrl;
-    }
+    // Start with whatever images are already successfully saved or recently uploaded client-side
+    let finalizedAvatarUrl = uploadedAvatarUrl || formData.existingAvatarUrl || "";
+    let finalizedBannerUrl = uploadedBannerUrl || formData.existingBannerUrl || "";
 
     // --- STEP 3: CONSTRUCT A CLEAN PAYLOAD ---
     // Ensure every single field is passed as a verified, clean string pattern
@@ -335,6 +374,8 @@ export const AboutView: React.FC = () => {
     }
     setProfileFile(null);
     setBannerFile(null);
+    setUploadedAvatarUrl(null);
+    setUploadedBannerUrl(null);
 
     setEditMode(false);
 

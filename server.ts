@@ -7,6 +7,8 @@ import { connectToDatabase } from "./lib/mongodb";
 import { User, Track } from "./lib/mongooseModels";
 import Stripe from "stripe";
 import { put } from "@vercel/blob";
+// @ts-ignore
+import { handleUpload } from "@vercel/blob/next";
 
 let stripeClient: Stripe | null = null;
 function getStripe(): Stripe | null {
@@ -72,6 +74,37 @@ async function startServer() {
   // Body parsers
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  // API Router - Vercel Blob client token generator
+  app.post("/api/avatar/upload", async (req, res) => {
+    try {
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+      if (!token) {
+        console.warn("BLOB_READ_WRITE_TOKEN environment variable is required for Vercel Blob uploads!");
+        return res.status(400).json({ error: "BLOB_READ_WRITE_TOKEN environment variable is missing on the server. Please add it in settings." });
+      }
+
+      console.log("Generating secure client-side token or processing upload callback...");
+      const jsonResponse = await handleUpload({
+        body: req.body,
+        request: req as any,
+        onBeforeGenerateToken: async (pathname, clientPayload) => {
+          return {
+            allowedContentTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+            tokenPayload: JSON.stringify({ userId: "tyrox" }),
+          };
+        },
+        onUploadCompleted: async ({ blob, tokenPayload }) => {
+          console.log("Client-side direct upload completed via Vercel Blob:", blob, tokenPayload);
+        }
+      });
+
+      return res.json(jsonResponse);
+    } catch (error: any) {
+      console.error("Vercel Blob handleUpload error:", error);
+      return res.status(400).json({ error: error.message || error });
+    }
+  });
 
   // API Router - Upload via standard /api/upload endpoint mapped in frontend
   app.post(
