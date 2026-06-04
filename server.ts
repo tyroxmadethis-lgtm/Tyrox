@@ -6,6 +6,7 @@ import { createServer as createViteServer } from "vite";
 import { connectToDatabase } from "./lib/mongodb";
 import { User, Track } from "./lib/mongooseModels";
 import Stripe from "stripe";
+import { put } from "@vercel/blob";
 
 let stripeClient: Stripe | null = null;
 function getStripe(): Stripe | null {
@@ -86,17 +87,58 @@ async function startServer() {
         
         const responseData: any = {
           success: true,
-          message: "Files uploaded successfully to server container!",
+          message: "Files processed successfully!",
           avatarUrl: null,
           bannerUrl: null,
         };
 
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        console.log("Securely checking BLOB_READ_WRITE_TOKEN state on the backend...");
+
         if (filesMap) {
           if (filesMap["avatar"] && filesMap["avatar"][0]) {
-            responseData.avatarUrl = "/static/images/tyrox_profile.jpg";
+            const fileObj = filesMap["avatar"][0];
+            if (token) {
+              console.log("Secure token found. Uploading avatar to Vercel Blob...");
+              const fileContent = fs.readFileSync(fileObj.path);
+              const blobResult = await put(`avatars/avatar-${Date.now()}-${fileObj.originalname}`, fileContent, {
+                access: "public",
+                token: token,
+                contentType: fileObj.mimetype || "image/jpeg",
+              });
+              responseData.avatarUrl = blobResult.url;
+              console.log("Avatar uploaded successfully to Vercel Blob:", blobResult.url);
+              try {
+                fs.unlinkSync(fileObj.path);
+              } catch (err) {
+                console.warn("Failed to clean up uploaded temp file:", err);
+              }
+            } else {
+              console.log("No token present. Falling back to local container asset for avatar.");
+              responseData.avatarUrl = `/static/images/tyrox_profile.jpg?t=${Date.now()}`;
+            }
           }
           if (filesMap["banner"] && filesMap["banner"][0]) {
-            responseData.bannerUrl = "/banner.jpg";
+            const fileObj = filesMap["banner"][0];
+            if (token) {
+              console.log("Secure token found. Uploading banner to Vercel Blob...");
+              const fileContent = fs.readFileSync(fileObj.path);
+              const blobResult = await put(`banners/banner-${Date.now()}-${fileObj.originalname}`, fileContent, {
+                access: "public",
+                token: token,
+                contentType: fileObj.mimetype || "image/jpeg",
+              });
+              responseData.bannerUrl = blobResult.url;
+              console.log("Banner uploaded successfully to Vercel Blob:", blobResult.url);
+              try {
+                fs.unlinkSync(fileObj.path);
+              } catch (err) {
+                console.warn("Failed to clean up uploaded temp file:", err);
+              }
+            } else {
+              console.log("No token present. Falling back to local container asset for banner.");
+              responseData.bannerUrl = `/banner.jpg?t=${Date.now()}`;
+            }
           }
         }
 

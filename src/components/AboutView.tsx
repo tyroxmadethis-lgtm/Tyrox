@@ -192,7 +192,7 @@ export const AboutView: React.FC = () => {
     try {
       const uploadResults: { avatarUrl: string | null; bannerUrl: string | null } = { avatarUrl: null, bannerUrl: null };
       
-      // Create form data payload compatible with Safari file transfers
+      // Create clean form data payload compatible with Safari and modern browsers
       const formData = new FormData();
       
       if (avatarFile) {
@@ -207,15 +207,19 @@ export const AboutView: React.FC = () => {
         ? '/api/upload' 
         : `${origin}/api/upload`;
 
-      // Send assets to your file server backend (Vercel Blob, Cloudinary, S3, etc.)
+      // Send assets to our file server backend with clean accept headers
       const response = await fetch(absoluteUrl, {
         method: 'POST',
-        body: formData, // Safari requires raw FormData without a manual 'Content-Type' header
+        headers: {
+          'Accept': 'application/json',
+          // Note: Content-Type is intentionally omitted so the browser sets its own boundary
+        },
+        body: formDataByBrowser(formData),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Storage bucket rejected the files.");
+        throw new Error(errorData.error || errorData.message || "Storage bucket rejected the files on backend processing.");
       }
 
       // Parse the clean string URLs returned by the server
@@ -232,6 +236,11 @@ export const AboutView: React.FC = () => {
       throw new Error(`Failed to upload assets: ${error.message}`);
     }
   };
+
+  // Safe helper to return pristine FormData
+  function formDataByBrowser(fd: FormData): FormData {
+    return fd;
+  }
 
   const handleSaveChanges = async (formData: any) => {
     // --- STEP 1: INITIALIZE IMAGE STRINGS ---
