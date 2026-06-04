@@ -40,13 +40,60 @@ export default function UnifiedArtistPortal() {
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Automated Social Links Configuration State
-  const [socialLinks] = useState({
-    tiktok: "https://tiktok.com",
-    instagram: "https://instagram.com",
-    youtube: "https://youtube.com",
-    twitter: "https://twitter.com"
+  const [bannerImg, setBannerImg] = useState(() => {
+    return localStorage.getItem('tyrox_banner_img') || "/banner.jpg";
   });
+
+  // Automated Social Links Configuration State
+  const [socialLinks, setSocialLinks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tyrox_socials');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {}
+    return {
+      tiktok: "https://tiktok.com/@tyrox.made.this",
+      instagram: "https://instagram.com/tyroxmadethis/",
+      youtube: "https://youtube.com/@TyroxMadeThis",
+      twitter: "https://twitter.com/Tyrox_made_this"
+    };
+  });
+
+  // Sync banner edits across views instantly
+  useEffect(() => {
+    const handleBannerUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setBannerImg(customEvent.detail);
+      }
+    };
+    window.addEventListener('tyrox-banner-updated', handleBannerUpdate);
+    return () => {
+      window.removeEventListener('tyrox-banner-updated', handleBannerUpdate);
+    };
+  }, []);
+
+  // Sync social links from localStorage when view renders or matches profile settings
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('tyrox_socials');
+      if (saved) {
+        setSocialLinks(JSON.parse(saved));
+      }
+    } catch (e) {}
+
+    const handleSocialsUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<any>;
+      if (customEvent.detail) {
+        setSocialLinks(customEvent.detail);
+      }
+    };
+    window.addEventListener('tyrox-socials-updated', handleSocialsUpdate);
+    return () => {
+      window.removeEventListener('tyrox-socials-updated', handleSocialsUpdate);
+    };
+  }, []);
 
   // 2. FETCH REAL-TIME DATA (Ensures zero on boot, then queries active database metrics)
   const fetchLivePlatformData = async () => {
@@ -220,7 +267,7 @@ export default function UnifiedArtistPortal() {
       <div className="w-full max-w-5xl mx-auto px-4 mt-8">
         <div className="relative w-full h-48 md:h-64 rounded-2xl overflow-hidden bg-neutral-900 shadow-2xl border border-white/5">
           <img 
-            src="/banner.jpg" 
+            src={bannerImg} 
             alt="Artist Banner Background" 
             className="w-full h-full object-cover opacity-60" 
             onError={(e) => {

@@ -6,12 +6,12 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-const bioDescription = "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.";
+const bioDescription = "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists.";
 
 const socialLinks = {
-  tiktok: "https://tiktok.com/@tyroxbeats",
-  instagram: "https://instagram.com/tyrox",
-  twitter: "https://twitter.com/tyrox",
+  tiktok: "https://tiktok.com/@tyrox.made.this",
+  instagram: "https://instagram.com/tyroxmadethis/",
+  twitter: "https://twitter.com/Tyrox_made_this",
   youtube: "https://youtube.com/@TyroxMadeThis"
 };
 

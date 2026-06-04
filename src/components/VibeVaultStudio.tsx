@@ -6,8 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Track, Coupon, LicensingContract } from '../types';
-import { DollarSign, BarChart3, Radio, FileText, Percent, Globe, ShieldAlert, Cpu, CircleHelp, Trash2, Edit2, Plus, Sparkles, Check, RefreshCw, Send, CheckCircle, ExternalLink, Copy, Shield } from 'lucide-react';
+import { DollarSign, BarChart3, Radio, FileText, Percent, Globe, ShieldAlert, Cpu, CircleHelp, Trash2, Edit2, Plus, Sparkles, Check, RefreshCw, Send, CheckCircle, ExternalLink, Copy, Shield, Image as ImageIcon } from 'lucide-react';
 import { UltimateBeatUploader } from './UltimateBeatUploader';
+import { CoverArtOptimizer } from './CoverArtOptimizer';
 import { CloudTriggers } from './CloudTriggers';
 import { OwnerCoreConsole } from './OwnerCoreConsole';
 import { FinancialTelemetryStream } from './FinancialTelemetryStream';
@@ -205,6 +206,7 @@ export const VibeVaultStudio: React.FC = () => {
               {[
                 { id: 'tracks', label: 'Active Tracks', icon: Radio },
                 { id: 'ai-uploader', label: 'AI Beat Uploader', icon: Sparkles },
+                { id: 'cover-optimizer', label: 'Cover Art Optimizer', icon: ImageIcon },
                 { id: 'owner-core', label: 'Owner Core Console', icon: Shield },
                 { id: 'contracts', label: 'Licensing Contracts', icon: FileText },
                 { id: 'cloud-triggers', label: 'Cloud Storage Hook', icon: Cpu },
@@ -469,6 +471,10 @@ export const VibeVaultStudio: React.FC = () => {
         {/* Active Tracks manager: CONTENT */}
         {adminSection === 'ai-uploader' && (
           <UltimateBeatUploader />
+        )}
+
+        {adminSection === 'cover-optimizer' && (
+          <CoverArtOptimizer />
         )}
 
         {adminSection === 'cloud-triggers' && (

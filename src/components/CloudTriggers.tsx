@@ -61,6 +61,25 @@ export const CloudTriggers: React.FC = () => {
   const [viewMode, setViewMode] = useState<"lambdas" | "repository">("repository");
   const [activeRepoFile, setActiveRepoFile] = useState<string>("main.py");
 
+  const [syncTrigger, setSyncTrigger] = useState(0);
+
+  React.useEffect(() => {
+    const handleUpdate = () => {
+      setSyncTrigger(prev => prev + 1);
+    };
+    window.addEventListener('tyrox-profile-updated', handleUpdate);
+    window.addEventListener('tyrox-banner-updated', handleUpdate);
+    window.addEventListener('tyrox-bio-updated', handleUpdate);
+    window.addEventListener('tyrox-socials-updated', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('tyrox-profile-updated', handleUpdate);
+      window.removeEventListener('tyrox-banner-updated', handleUpdate);
+      window.removeEventListener('tyrox-bio-updated', handleUpdate);
+      window.removeEventListener('tyrox-socials-updated', handleUpdate);
+    };
+  }, []);
+
   const repositoryFiles: Record<string, { name: string; path: string; description: string; code: string }> = {
     "main.py": {
       name: "main.py",
@@ -147,20 +166,32 @@ APP_URL="https://ais-dev-hampynomukyhthpabzqqs5-535063907055.us-west2.run.app"
       name: "about_bio.txt",
       path: "static/about_bio.txt",
       description: "Dynamic biography stream loaded by about.html to deliver a crisp professional profile.",
-      code: `In a landscape saturated by repetitive loops, original composition is king. I track real guitar axes, program heavy industrial drum modules, and write customized synthesizers designed to shatter subwoofers. Every beat is licensed with clean trackouts, complete royalty-free terms, and full contract delivery.
-`
+      code: (() => {
+        try {
+          const bio = localStorage.getItem('tyrox_bio');
+          if (bio) return bio;
+        } catch (e) {}
+        return `Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists.`;
+      })()
     },
     "social_links.json": {
       name: "social_links.json",
       path: "static/social_links.json",
       description: "Static configuration mapping your professional social media handles.",
-      code: `{
-  "instagram": "https://instagram.com/tyroxmadethis",
-  "youtube": "https://youtube.com/c/tyroxbeats",
-  "twitter": "https://twitter.com/tyroxmadethis",
-  "beatstars": "https://beatstars.com/tyroxmadethis"
-}
-`
+      code: (() => {
+        try {
+          const saved = localStorage.getItem('tyrox_socials');
+          if (saved) {
+            return JSON.stringify(JSON.parse(saved), null, 2);
+          }
+        } catch (e) {}
+        return JSON.stringify({
+          tiktok: "https://tiktok.com/@tyrox.made.this",
+          instagram: "https://instagram.com/tyroxmadethis/",
+          twitter: "https://twitter.com/Tyrox_made_this",
+          youtube: "https://youtube.com/@TyroxMadeThis"
+        }, null, 2);
+      })()
     },
     "tyrox_profile.jpg": {
       name: "tyrox_profile.jpg",
@@ -2395,7 +2426,7 @@ async def track_paid_purchase(track_name: str, license_type: str, buyer_email: s
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 space-y-4">
                     <div className="w-24 h-24 rounded-full border-2 border-purple-500 bg-neutral-900 overflow-hidden flex items-center justify-center relative">
                       <img
-                        src="/static/images/tyrox_profile.jpg"
+                        src={localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg"}
                         alt="Tyrox"
                         referrerPolicy="no-referrer"
                         onError={(e) => {

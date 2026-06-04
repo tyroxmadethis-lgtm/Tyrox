@@ -84,6 +84,43 @@ function AppContent() {
     };
   }, []);
 
+  // Initialize custom profile info in localStorage on mount ONLY if not set yet!
+  React.useEffect(() => {
+    if (!localStorage.getItem('tyrox_bio')) {
+      localStorage.setItem('tyrox_bio', "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists.");
+    }
+    if (!localStorage.getItem('tyrox_socials')) {
+      localStorage.setItem('tyrox_socials', JSON.stringify({
+        tiktok: 'https://tiktok.com/@tyrox.made.this',
+        instagram: 'https://instagram.com/tyroxmadethis/',
+        twitter: 'https://twitter.com/Tyrox_made_this',
+        youtube: 'https://youtube.com/@TyroxMadeThis'
+      }));
+    }
+    
+    // Read whatever values are currently in localStorage or fallback to initial defaults
+    const currentProfile = localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
+    const currentBanner = localStorage.getItem('tyrox_banner_img') || "/banner.jpg";
+    
+    // Always sync image references with cache busting so any updated images render instantly
+    const cleanProfilePath = currentProfile.split('?')[0];
+    const cleanBannerPath = currentBanner.split('?')[0];
+    
+    const profilePath = `${cleanProfilePath}?t=${Date.now()}`;
+    const bannerPath = `${cleanBannerPath}?t=${Date.now()}`;
+    
+    localStorage.setItem('tyrox_profile_img', profilePath);
+    localStorage.setItem('tyrox_banner_img', bannerPath);
+    
+    // Set active states on boot
+    setProfileImg(profilePath);
+    setBannerImg(bannerPath);
+    
+    // Dispatch update events to synchronize any active storefront banner/profile views instantly
+    window.dispatchEvent(new CustomEvent('tyrox-profile-updated', { detail: profilePath }));
+    window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: bannerPath }));
+  }, []);
+
   // Calculate cart count and value
   const cartCount = cart.length;
   const cartSubtotal = cart.reduce((acc, item) => acc + item.license.price, 0);

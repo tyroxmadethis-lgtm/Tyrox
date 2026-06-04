@@ -6,20 +6,20 @@
     "enterpriseTier": "VIP Platinum Beat Maker",
     "stripeConnectAccountId": "acct_tyrox_exclusive_123",
     "socialLinks": {
-      "tiktok": "https://tiktok.com/@tyroxbeats",
-      "instagram": "https://instagram.com/tyrox",
-      "twitter": "https://twitter.com/tyrox",
+      "tiktok": "https://tiktok.com/@tyrox.made.this",
+      "instagram": "https://instagram.com/tyroxmadethis/",
+      "twitter": "https://twitter.com/Tyrox_made_this",
       "youtube": "https://youtube.com/@TyroxMadeThis"
     },
     "profilePictureUrl": "/static/images/tyrox_profile.jpg",
     "bannerPictureUrl": "/banner.jpg",
     "createdAt": "2026-06-03T21:08:00.995Z",
-    "updatedAt": "2026-06-04T01:10:00.481Z",
-    "bio": "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.",
-    "bioDescription": "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.",
-    "socialLinks.tiktok": "https://tiktok.com/@tyroxbeats",
-    "socialLinks.instagram": "https://instagram.com/tyrox",
-    "socialLinks.twitter": "https://twitter.com/tyrox",
+    "updatedAt": "2026-06-04T10:39:20.630Z",
+    "bio": "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists.",
+    "bioDescription": "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists.",
+    "socialLinks.tiktok": "https://tiktok.com/@tyrox.made.this",
+    "socialLinks.instagram": "https://instagram.com/tyroxmadethis/",
+    "socialLinks.twitter": "https://twitter.com/Tyrox_made_this",
     "socialLinks.youtube": "https://youtube.com/@TyroxMadeThis"
   }
 ]

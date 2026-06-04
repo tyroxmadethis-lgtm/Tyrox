@@ -8,10 +8,10 @@ export const AboutView: React.FC = () => {
   const [editMode, setEditMode] = React.useState(false);
   const [bioText, setBioText] = React.useState(() => {
     const saved = localStorage.getItem('tyrox_bio');
-    if (saved && saved.includes("Madison")) {
+    if (saved && saved.includes("Operating straight out of Madison, Wisconsin")) {
       return saved;
     }
-    return "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.";
+    return "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists.";
   });
   const [tempBioText, setTempBioText] = React.useState(bioText);
   
@@ -41,20 +41,18 @@ export const AboutView: React.FC = () => {
       const saved = localStorage.getItem('tyrox_socials');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.tiktok && (parsed.tiktok.includes("tiktok") || parsed.tiktok.includes("tyroxbeats"))) {
-          return {
-            tiktok: parsed.tiktok,
-            instagram: parsed.instagram || "https://instagram.com/tyrox",
-            twitter: parsed.twitter || "https://twitter.com/tyrox",
-            youtube: parsed.youtube || "https://youtube.com/@TyroxMadeThis"
-          };
-        }
+        return {
+          tiktok: parsed.tiktok || "https://tiktok.com/@tyrox.made.this",
+          instagram: parsed.instagram || "https://instagram.com/tyroxmadethis/",
+          twitter: parsed.twitter || "https://twitter.com/Tyrox_made_this",
+          youtube: parsed.youtube || "https://youtube.com/@TyroxMadeThis"
+        };
       }
     } catch (e) {}
     return {
-      tiktok: "https://tiktok.com/@tyroxbeats",
-      instagram: "https://instagram.com/tyrox",
-      twitter: "https://twitter.com/tyrox",
+      tiktok: "https://tiktok.com/@tyrox.made.this",
+      instagram: "https://instagram.com/tyroxmadethis/",
+      twitter: "https://twitter.com/Tyrox_made_this",
       youtube: "https://youtube.com/@TyroxMadeThis"
     };
   });
@@ -226,6 +224,10 @@ export const AboutView: React.FC = () => {
         setSocials(nextSocials);
         localStorage.setItem('tyrox_bio', tempBioText);
         localStorage.setItem('tyrox_socials', JSON.stringify(nextSocials));
+
+        // Dispatch synchronized update events across panels instantly
+        window.dispatchEvent(new CustomEvent('tyrox-bio-updated', { detail: tempBioText }));
+        window.dispatchEvent(new CustomEvent('tyrox-socials-updated', { detail: nextSocials }));
 
         // If files are returned or set on disk, sync them immediately
         if (data.profilePicPath) {

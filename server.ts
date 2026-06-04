@@ -527,7 +527,10 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    // Serve production built files first
     app.use(express.static(distPath));
+    // Fallback to serve dynamically uploaded assets directly from the public/ directory on container storage
+    app.use(express.static(path.join(process.cwd(), "public")));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
