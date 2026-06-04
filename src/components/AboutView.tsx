@@ -202,7 +202,9 @@ export const AboutView: React.FC = () => {
       }
 
       // 4. Send the payload bundle to your API route
-      const response = await fetch('/api/user/upload-assets', {
+      // Use absolute URL to bypass Safari/WebKit engine's relative URL fetch interception parsing quirks
+      const absoluteUrl = `${window.location.origin}/api/user/upload-assets`;
+      const response = await fetch(absoluteUrl, {
         method: 'POST',
         // CRUCIAL: Do NOT pass a 'Content-Type' header here.
         // Leaving it blank forces the browser to set 'multipart/form-data' 

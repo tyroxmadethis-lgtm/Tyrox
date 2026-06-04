@@ -214,7 +214,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
     try {
       // Loop over items and perform concurrent payments via backend
       const checkoutPromises = cart.map(async (item) => {
-        const response = await fetch('/api/checkout/stripe', {
+        const response = await fetch(`${window.location.origin}/api/checkout/stripe`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

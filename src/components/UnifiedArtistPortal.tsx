@@ -99,7 +99,7 @@ export default function UnifiedArtistPortal() {
   const fetchLivePlatformData = async () => {
     try {
       // Fetch from the live API route
-      const telemetryRes = await fetch('/api/analytics/live-telemetry');
+      const telemetryRes = await fetch(`${window.location.origin}/api/analytics/live-telemetry`);
       if (telemetryRes.ok) {
         const telemetryData = await telemetryRes.json();
         if (telemetryData.success && telemetryData.metrics) {
@@ -108,7 +108,7 @@ export default function UnifiedArtistPortal() {
       }
 
       // Fetch from the live transaction stream
-      const ledgerRes = await fetch('/api/transactions/live-stream');
+      const ledgerRes = await fetch(`${window.location.origin}/api/transactions/live-stream`);
       if (ledgerRes.ok) {
         const ledgerData = await ledgerRes.json();
         if (ledgerData.success && ledgerData.ledgerItems) {
@@ -196,7 +196,7 @@ export default function UnifiedArtistPortal() {
     setUploading(true);
     try {
       const trackId = selectedTrackForDownload.id || (selectedTrackForDownload as any)._id;
-      const res = await fetch('/api/marketing/mailing-list-lock', {
+      const res = await fetch(`${window.location.origin}/api/marketing/mailing-list-lock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput, trackId })

@@ -26,7 +26,7 @@ export default function FreeDownloadGateModal({ track, onClose, onActivationSucc
     const trackId = track.id || track._id || "unknown";
 
     try {
-      const response = await fetch('/api/marketing/mailing-list-lock', {
+      const response = await fetch(`${window.location.origin}/api/marketing/mailing-list-lock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput, trackId })

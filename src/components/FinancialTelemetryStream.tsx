@@ -13,7 +13,8 @@ export function FinancialTelemetryStream() {
     async function streamLiveTelemetry() {
       try {
         // Fetch from the live API route we built in the last step
-        const response = await fetch('/api/analytics/live-telemetry');
+        const absoluteUrl = `${window.location.origin}/api/analytics/live-telemetry`;
+        const response = await fetch(absoluteUrl);
         const data = await response.json();
         
         if (data.success) {
