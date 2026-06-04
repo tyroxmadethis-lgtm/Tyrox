@@ -1,6 +1,24 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw, Music } from 'lucide-react';
+import { z } from "zod";
+
+export const globalSetupSchema = z.object({
+  bio: z.string().max(1000),
+  
+  // Using .catch() or general strings ensures a strict pattern never crashes your save button
+  tiktokUrl: z.string().url().or(z.string().length(0)),
+  instagramUrl: z.string().url().or(z.string().length(0)),
+  
+  // Specifically allowing underscores and hyphens in the path
+  twitterUrl: z.string().regex(/^(https?:\/\/)?(www\.)?twitter\.com\/[a-zA-Z0-9_]+\/?$/, {
+    message: "Invalid Twitter URL profile format"
+  }).or(z.string().length(0)),
+  
+  youtubeUrl: z.string().regex(/^(https?:\/\/)?(www\.)?youtube\.com\/@[a-zA-Z0-9_.-]+\/?$/, {
+    message: "Invalid YouTube URL format"
+  }).or(z.string().length(0)),
+});
 
 export const AboutView: React.FC = () => {
   const { setActiveTab } = useStore();
@@ -175,16 +193,24 @@ export const AboutView: React.FC = () => {
     setUploading(true);
 
     try {
-      // 1. Initialize a clean FormData object instance
-      const formData = new FormData();
-      
-      // 2. Append text input links correctly as standard strings
-      // Make sure your input elements have these exact ID attributes or match your state names
+      // 1. Get input values
       const twitterInput = (document.getElementById('twitter-url') as HTMLInputElement)?.value ?? tempSocials.twitter ?? "";
       const youtubeInput = (document.getElementById('youtube-url') as HTMLInputElement)?.value ?? tempSocials.youtube ?? "";
       const tiktokInput = (document.getElementById('tiktok-url') as HTMLInputElement)?.value ?? tempSocials.tiktok ?? "";
       const instagramInput = (document.getElementById('instagram-url') as HTMLInputElement)?.value ?? tempSocials.instagram ?? "";
 
+      // 2. Validate Social Media URLs using robust Zod schema
+      globalSetupSchema.parse({
+        bio: tempBioText,
+        tiktokUrl: tiktokInput,
+        instagramUrl: instagramInput,
+        twitterUrl: twitterInput,
+        youtubeUrl: youtubeInput,
+      });
+
+      // 3. Initialize a clean FormData object instance
+      const formData = new FormData();
+      
       formData.append('twitter', twitterInput);
       formData.append('youtube', youtubeInput);
       formData.append('tiktok', tiktokInput);
@@ -193,7 +219,7 @@ export const AboutView: React.FC = () => {
       // Also append bio descriptor so it doesn't get lost
       formData.append('bio', tempBioText);
 
-      // 3. Append your files only if they exist in state
+      // 4. Append files only if they exist in state
       if (profileFile) {
         formData.append('profilePic', profileFile);
       }
@@ -201,9 +227,13 @@ export const AboutView: React.FC = () => {
         formData.append('topBanner', bannerFile);
       }
 
-      // 4. Send the payload bundle to your API route
-      // Use absolute URL to bypass Safari/WebKit engine's relative URL fetch interception parsing quirks
-      const absoluteUrl = `${window.location.origin}/api/user/upload-assets`;
+      // 5. Send the payload bundle to your API route
+      // Safe URL construction fallback for Safari inside sandboxed iframe containers where origin can be "null"
+      const origin = window.location.origin;
+      const absoluteUrl = (!origin || origin === 'null') 
+        ? '/api/user/upload-assets' 
+        : `${origin}/api/user/upload-assets`;
+
       const response = await fetch(absoluteUrl, {
         method: 'POST',
         // CRUCIAL: Do NOT pass a 'Content-Type' header here.
@@ -276,7 +306,12 @@ export const AboutView: React.FC = () => {
 
     } catch (error: any) {
       console.error('Submission processing caught an error:', error);
-      alert(`Client-side processing error: ${error.message}`);
+      let errorMessage = error.message;
+      if (error instanceof z.ZodError) {
+        // Formulate a clean aggregate message from Zod validation issues
+        errorMessage = error.issues.map(err => `${err.path.join('.')}: ${err.message}`).join(' | ');
+      }
+      alert(`Client-side processing error: ${errorMessage}`);
     } finally {
       setUploading(false);
     }

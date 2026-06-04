@@ -15,7 +15,11 @@ export default function TransactionLedger() {
   useEffect(() => {
     async function fetchRealLedger() {
       try {
-        const res = await fetch(`${window.location.origin}/api/transactions/live-stream`);
+        const origin = window.location.origin;
+        const targetUrl = (!origin || origin === 'null') 
+          ? '/api/transactions/live-stream' 
+          : `${origin}/api/transactions/live-stream`;
+        const res = await fetch(targetUrl);
         const data = await res.json();
         if (data.success) {
           setTransactions(data.ledgerItems || []);

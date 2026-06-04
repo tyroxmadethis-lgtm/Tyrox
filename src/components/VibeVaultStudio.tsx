@@ -42,7 +42,9 @@ export const VibeVaultStudio: React.FC = () => {
 
   const fetchLiveMetrics = async () => {
     try {
-      const response = await fetch(`${window.location.origin}/api/analytics/live-telemetry`);
+      const origin = window.location.origin;
+      const teleUrl = (!origin || origin === 'null') ? '/api/analytics/live-telemetry' : `${origin}/api/analytics/live-telemetry`;
+      const response = await fetch(teleUrl);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.metrics) {
@@ -56,7 +58,9 @@ export const VibeVaultStudio: React.FC = () => {
 
   const fetchLiveLedger = async () => {
     try {
-      const response = await fetch(`${window.location.origin}/api/transactions/live-stream`);
+      const origin = window.location.origin;
+      const streamUrl = (!origin || origin === 'null') ? '/api/transactions/live-stream' : `${origin}/api/transactions/live-stream`;
+      const response = await fetch(streamUrl);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.ledgerItems) {
@@ -698,7 +702,9 @@ export const VibeVaultStudio: React.FC = () => {
                       const nextState = !showPortableCode;
                       setShowPortableCode(nextState);
                       if (nextState && !portableHtml) {
-                        fetch(`${window.location.origin}/portable_player.html`)
+                        const origin = window.location.origin;
+                        const playerUrl = (!origin || origin === 'null') ? '/portable_player.html' : `${origin}/portable_player.html`;
+                        fetch(playerUrl)
                           .then(res => res.text())
                           .then(code => setPortableHtml(code))
                           .catch(() => addNotification("ERROR // Failed to load source file"));

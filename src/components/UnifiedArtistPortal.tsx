@@ -98,8 +98,9 @@ export default function UnifiedArtistPortal() {
   // 2. FETCH REAL-TIME DATA (Ensures zero on boot, then queries active database metrics)
   const fetchLivePlatformData = async () => {
     try {
-      // Fetch from the live API route
-      const telemetryRes = await fetch(`${window.location.origin}/api/analytics/live-telemetry`);
+      const origin = window.location.origin;
+      const teleUrl = (!origin || origin === 'null') ? '/api/analytics/live-telemetry' : `${origin}/api/analytics/live-telemetry`;
+      const telemetryRes = await fetch(teleUrl);
       if (telemetryRes.ok) {
         const telemetryData = await telemetryRes.json();
         if (telemetryData.success && telemetryData.metrics) {
@@ -108,7 +109,8 @@ export default function UnifiedArtistPortal() {
       }
 
       // Fetch from the live transaction stream
-      const ledgerRes = await fetch(`${window.location.origin}/api/transactions/live-stream`);
+      const streamUrl = (!origin || origin === 'null') ? '/api/transactions/live-stream' : `${origin}/api/transactions/live-stream`;
+      const ledgerRes = await fetch(streamUrl);
       if (ledgerRes.ok) {
         const ledgerData = await ledgerRes.json();
         if (ledgerData.success && ledgerData.ledgerItems) {
@@ -196,7 +198,9 @@ export default function UnifiedArtistPortal() {
     setUploading(true);
     try {
       const trackId = selectedTrackForDownload.id || (selectedTrackForDownload as any)._id;
-      const res = await fetch(`${window.location.origin}/api/marketing/mailing-list-lock`, {
+      const origin = window.location.origin;
+      const lockUrl = (!origin || origin === 'null') ? '/api/marketing/mailing-list-lock' : `${origin}/api/marketing/mailing-list-lock`;
+      const res = await fetch(lockUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput, trackId })
