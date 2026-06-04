@@ -188,34 +188,49 @@ export const AboutView: React.FC = () => {
     window.dispatchEvent(syncEvent);
   };
 
-  const yourImageUploadFunction = async (params: { avatar?: File | null; banner?: File | null }) => {
-    const formData = new FormData();
-    if (params.avatar) {
-      formData.append('profilePic', params.avatar);
+  const uploadMediaAssets = async (avatarFile: File | null, bannerFile: File | null) => {
+    try {
+      const uploadResults: { avatarUrl: string | null; bannerUrl: string | null } = { avatarUrl: null, bannerUrl: null };
+      
+      // Create form data payload compatible with Safari file transfers
+      const formData = new FormData();
+      
+      if (avatarFile) {
+        formData.append("avatar", avatarFile);
+      }
+      if (bannerFile) {
+        formData.append("banner", bannerFile);
+      }
+
+      const origin = window.location.origin;
+      const absoluteUrl = (!origin || origin === 'null') 
+        ? '/api/upload' 
+        : `${origin}/api/upload`;
+
+      // Send assets to your file server backend (Vercel Blob, Cloudinary, S3, etc.)
+      const response = await fetch(absoluteUrl, {
+        method: 'POST',
+        body: formData, // Safari requires raw FormData without a manual 'Content-Type' header
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Storage bucket rejected the files.");
+      }
+
+      // Parse the clean string URLs returned by the server
+      const data = await response.json();
+      
+      uploadResults.avatarUrl = data.avatarUrl || null;
+      uploadResults.bannerUrl = data.bannerUrl || null;
+
+      return uploadResults;
+
+    } catch (error: any) {
+      console.error("Asset upload failed root cause:", error);
+      // This intercepts the crash and prevents the whole app from freezing
+      throw new Error(`Failed to upload assets: ${error.message}`);
     }
-    if (params.banner) {
-      formData.append('topBanner', params.banner);
-    }
-
-    const origin = window.location.origin;
-    const absoluteUrl = (!origin || origin === 'null') 
-      ? '/api/user/upload-assets' 
-      : `${origin}/api/user/upload-assets`;
-
-    const response = await fetch(absoluteUrl, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to upload assets.");
-    }
-
-    const data = await response.json();
-    return {
-      avatarUrl: data.profilePicPath,
-      bannerUrl: data.topBannerPath,
-    };
   };
 
   const handleSaveChanges = async (formData: any) => {
@@ -230,10 +245,10 @@ export const AboutView: React.FC = () => {
       console.log("Images detected. Pausing form save until upload completes...");
       
       // Execute your upload function and completely wait for it to return actual string URLs
-      const uploadResponse = await yourImageUploadFunction({
-        avatar: formData.newAvatarFile,
-        banner: formData.newBannerFile
-      });
+      const uploadResponse = await uploadMediaAssets(
+        formData.newAvatarFile,
+        formData.newBannerFile
+      );
 
       // Assign the freshly generated web string links
       if (uploadResponse?.avatarUrl) finalizedAvatarUrl = uploadResponse.avatarUrl;
