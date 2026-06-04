@@ -154,6 +154,41 @@ async function startServer() {
     }
   );
 
+  // API Router - Save Global Settings
+  app.post("/api/settings/save", async (req, res) => {
+    try {
+      const { bio, tiktokUrl, instagramUrl, twitterUrl, youtubeUrl, avatar, banner } = req.body;
+      console.log("Saving global settings:", req.body);
+      
+      const updatePayload: any = {};
+      
+      if (bio !== undefined) {
+        updatePayload.bio = bio;
+        updatePayload.bioDescription = bio;
+      }
+      
+      if (tiktokUrl !== undefined) updatePayload["socialLinks.tiktok"] = tiktokUrl;
+      if (instagramUrl !== undefined) updatePayload["socialLinks.instagram"] = instagramUrl;
+      if (twitterUrl !== undefined) updatePayload["socialLinks.twitter"] = twitterUrl;
+      if (youtubeUrl !== undefined) updatePayload["socialLinks.youtube"] = youtubeUrl;
+      
+      if (avatar !== undefined && avatar !== "") {
+        updatePayload.profilePictureUrl = avatar;
+      }
+      if (banner !== undefined && banner !== "") {
+        updatePayload.bannerPictureUrl = banner;
+      }
+
+      await User.updateOne({ username: "tyrox" }, { $set: updatePayload });
+
+      const updatedDbUser = await User.findOne({ username: "tyrox" });
+      res.json({ success: true, message: "Settings saved successfully!", user: updatedDbUser });
+    } catch (error: any) {
+      console.error("Save global settings error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // API Router - Physical Fulfillment
   app.post("/api/orders/physical-fulfillment", async (req, res) => {
     try {

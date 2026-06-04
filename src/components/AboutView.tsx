@@ -188,7 +188,136 @@ export const AboutView: React.FC = () => {
     window.dispatchEvent(syncEvent);
   };
 
-  const handleSubmitSimultaneously = async (e?: React.FormEvent) => {
+  const yourImageUploadFunction = async (params: { avatar?: File | null; banner?: File | null }) => {
+    const formData = new FormData();
+    if (params.avatar) {
+      formData.append('profilePic', params.avatar);
+    }
+    if (params.banner) {
+      formData.append('topBanner', params.banner);
+    }
+
+    const origin = window.location.origin;
+    const absoluteUrl = (!origin || origin === 'null') 
+      ? '/api/user/upload-assets' 
+      : `${origin}/api/user/upload-assets`;
+
+    const response = await fetch(absoluteUrl, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to upload assets.");
+    }
+
+    const data = await response.json();
+    return {
+      avatarUrl: data.profilePicPath,
+      bannerUrl: data.topBannerPath,
+    };
+  };
+
+  const handleSaveChanges = async (formData: any) => {
+    // --- STEP 1: INITIALIZE IMAGE STRINGS ---
+    // Start with whatever images are already successfully saved
+    let finalizedAvatarUrl = formData.existingAvatarUrl || "";
+    let finalizedBannerUrl = formData.existingBannerUrl || "";
+
+    // --- STEP 2: WAIT FOR UPLOADS TO FINISH ---
+    // This stops the text from saving while the green "Uploading Simultaneously" is running
+    if (formData.newAvatarFile || formData.newBannerFile) {
+      console.log("Images detected. Pausing form save until upload completes...");
+      
+      // Execute your upload function and completely wait for it to return actual string URLs
+      const uploadResponse = await yourImageUploadFunction({
+        avatar: formData.newAvatarFile,
+        banner: formData.newBannerFile
+      });
+
+      // Assign the freshly generated web string links
+      if (uploadResponse?.avatarUrl) finalizedAvatarUrl = uploadResponse.avatarUrl;
+      if (uploadResponse?.bannerUrl) finalizedBannerUrl = uploadResponse.bannerUrl;
+    }
+
+    // --- STEP 3: CONSTRUCT A CLEAN PAYLOAD ---
+    // Ensure every single field is passed as a verified, clean string pattern
+    const cleanPayload = {
+      bio: (formData.bio || "").trim(),
+      tiktokUrl: (formData.tiktokUrl || "").trim(),
+      instagramUrl: (formData.instagramUrl || "").trim(),
+      twitterUrl: (formData.twitterUrl || "").trim(),
+      youtubeUrl: (formData.youtubeUrl || "").trim(),
+      avatar: String(finalizedAvatarUrl), // Forces it into a text string pattern
+      banner: String(finalizedBannerUrl)  // Forces it into a text string pattern
+    };
+
+    console.log("Payload verified as clean strings. Sending to database:", cleanPayload);
+
+    // --- STEP 4: SAVE TO YOUR DATABASE ---
+    const origin = window.location.origin;
+    const saveUrl = (!origin || origin === 'null') 
+      ? '/api/settings/save' 
+      : `${origin}/api/settings/save`;
+
+    const response = await fetch(saveUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cleanPayload)
+    });
+
+    if (!response.ok) {
+      throw new Error("Database rejected the data format.");
+    }
+
+    // Reflect successful saving in states and localStorage
+    const nextSocials = {
+      twitter: cleanPayload.twitterUrl,
+      youtube: cleanPayload.youtubeUrl,
+      tiktok: cleanPayload.tiktokUrl,
+      instagram: cleanPayload.instagramUrl
+    };
+
+    setBioText(cleanPayload.bio);
+    setSocials(nextSocials);
+    localStorage.setItem('tyrox_bio', cleanPayload.bio);
+    localStorage.setItem('tyrox_socials', JSON.stringify(nextSocials));
+
+    // Dispatch synchronized update events across panels instantly
+    window.dispatchEvent(new CustomEvent('tyrox-bio-updated', { detail: cleanPayload.bio }));
+    window.dispatchEvent(new CustomEvent('tyrox-socials-updated', { detail: nextSocials }));
+
+    if (finalizedAvatarUrl) {
+      const finalProfile = finalizedAvatarUrl.includes('?') ? finalizedAvatarUrl : `${finalizedAvatarUrl}?t=${Date.now()}`;
+      localStorage.setItem('tyrox_profile_img', finalProfile);
+      setProfileImg(finalProfile);
+      window.dispatchEvent(new CustomEvent('tyrox-profile-updated', { detail: finalProfile }));
+    }
+    if (finalizedBannerUrl) {
+      const finalBanner = finalizedBannerUrl.includes('?') ? finalizedBannerUrl : `${finalizedBannerUrl}?t=${Date.now()}`;
+      localStorage.setItem('tyrox_banner_img', finalBanner);
+      setBannerImg(finalBanner);
+      window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: finalBanner }));
+    }
+
+    // Revoke Object URLs to prevent memory leak
+    if (profilePreview) {
+      URL.revokeObjectURL(profilePreview);
+      setProfilePreview(null);
+    }
+    if (bannerPreview) {
+      URL.revokeObjectURL(bannerPreview);
+      setBannerPreview(null);
+    }
+    setProfileFile(null);
+    setBannerFile(null);
+
+    setEditMode(false);
+
+    alert("Changes saved successfully without pattern errors!");
+  };
+
+  const saveAllChanges = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setUploading(true);
 
@@ -208,101 +337,21 @@ export const AboutView: React.FC = () => {
         youtubeUrl: youtubeInput,
       });
 
-      // 3. Initialize a clean FormData object instance
-      const formData = new FormData();
-      
-      formData.append('twitter', twitterInput);
-      formData.append('youtube', youtubeInput);
-      formData.append('tiktok', tiktokInput);
-      formData.append('instagram', instagramInput);
-      
-      // Also append bio descriptor so it doesn't get lost
-      formData.append('bio', tempBioText);
+      // 3. Assemble parameters resembling the signature expected
+      const formPayload = {
+        existingAvatarUrl: profileImg,
+        existingBannerUrl: bannerImg,
+        newAvatarFile: profileFile,
+        newBannerFile: bannerFile,
+        bio: tempBioText,
+        tiktokUrl: tiktokInput,
+        instagramUrl: instagramInput,
+        twitterUrl: twitterInput,
+        youtubeUrl: youtubeInput,
+      };
 
-      // 4. Append files only if they exist in state
-      if (profileFile) {
-        formData.append('profilePic', profileFile);
-      }
-      if (bannerFile) {
-        formData.append('topBanner', bannerFile);
-      }
-
-      // 5. Send the payload bundle to your API route
-      // Safe URL construction fallback for Safari inside sandboxed iframe containers where origin can be "null"
-      const origin = window.location.origin;
-      const absoluteUrl = (!origin || origin === 'null') 
-        ? '/api/user/upload-assets' 
-        : `${origin}/api/user/upload-assets`;
-
-      const response = await fetch(absoluteUrl, {
-        method: 'POST',
-        // CRUCIAL: Do NOT pass a 'Content-Type' header here.
-        // Leaving it blank forces the browser to set 'multipart/form-data' 
-        // with the correct structural boundary automatically.
-        body: formData, 
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        const nextSocials = {
-          twitter: twitterInput,
-          youtube: youtubeInput,
-          tiktok: tiktokInput,
-          instagram: instagramInput
-        };
-        // Update states to reflect changes
-        setBioText(tempBioText);
-        setSocials(nextSocials);
-        localStorage.setItem('tyrox_bio', tempBioText);
-        localStorage.setItem('tyrox_socials', JSON.stringify(nextSocials));
-
-        // Dispatch synchronized update events across panels instantly
-        window.dispatchEvent(new CustomEvent('tyrox-bio-updated', { detail: tempBioText }));
-        window.dispatchEvent(new CustomEvent('tyrox-socials-updated', { detail: nextSocials }));
-
-        // If files are returned or set on disk, sync them immediately
-        if (data.profilePicPath) {
-          const finalProfile = `${data.profilePicPath}?t=${Date.now()}`;
-          localStorage.setItem('tyrox_profile_img', finalProfile);
-          setProfileImg(finalProfile);
-          window.dispatchEvent(new CustomEvent('tyrox-profile-updated', { detail: finalProfile }));
-        } else if (profileFile) {
-          const finalProfile = `/static/images/tyrox_profile.jpg?t=${Date.now()}`;
-          localStorage.setItem('tyrox_profile_img', finalProfile);
-          setProfileImg(finalProfile);
-          window.dispatchEvent(new CustomEvent('tyrox-profile-updated', { detail: finalProfile }));
-        }
-
-        if (data.topBannerPath) {
-          const finalBanner = `${data.topBannerPath}?t=${Date.now()}`;
-          localStorage.setItem('tyrox_banner_img', finalBanner);
-          setBannerImg(finalBanner);
-          window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: finalBanner }));
-        } else if (bannerFile) {
-          const finalBanner = `/banner.jpg?t=${Date.now()}`;
-          localStorage.setItem('tyrox_banner_img', finalBanner);
-          setBannerImg(finalBanner);
-          window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: finalBanner }));
-        }
-
-        // Revoke Object URLs to prevent memory leak
-        if (profilePreview) {
-          URL.revokeObjectURL(profilePreview);
-          setProfilePreview(null);
-        }
-        if (bannerPreview) {
-          URL.revokeObjectURL(bannerPreview);
-          setBannerPreview(null);
-        }
-        setProfileFile(null);
-        setBannerFile(null);
-
-        setEditMode(false);
-        alert('Links and assets updated simultaneously without errors!');
-      } else {
-        alert(`Server Error: ${data.message || data.error || 'Failed to update profile and banner.'}`);
-      }
+      // 4. Run multi-stage save
+      await handleSaveChanges(formPayload);
 
     } catch (error: any) {
       console.error('Submission processing caught an error:', error);
@@ -315,10 +364,6 @@ export const AboutView: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  };
-
-  const saveAllChanges = async () => {
-    await handleSubmitSimultaneously();
   };
 
   return (
