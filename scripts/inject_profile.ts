@@ -6,13 +6,13 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-const bioDescription = "Southside is a legendary multi-platinum record producer and the key architect of 808 Mafia. Pioneering the dark, aggressive, gritty trap sound that defined modern hip-hop, he has produced hits for Future, Drake, Travis Scott, Young Thug, and Lil Baby. This portal serves as the exclusive primary vault for unreleased custom stems and official enterprise beat licensing.";
+const bioDescription = "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.";
 
 const socialLinks = {
-  tiktok: "tiktok.com",
-  instagram: "instagram.com",
-  twitter: "twitter.com",
-  youtube: "youtube.com"
+  tiktok: "https://tiktok.com/@tyroxbeats",
+  instagram: "https://instagram.com/tyrox",
+  twitter: "https://twitter.com/tyrox",
+  youtube: "https://youtube.com/@TyroxMadeThis"
 };
 
 async function injectProfile() {
@@ -62,10 +62,14 @@ async function injectProfile() {
       const tyroxUser = users.find((u: any) => u.username === 'tyrox');
       if (tyroxUser) {
         tyroxUser.socialLinks = { ...socialLinks };
+        tyroxUser["socialLinks.tiktok"] = socialLinks.tiktok;
+        tyroxUser["socialLinks.instagram"] = socialLinks.instagram;
+        tyroxUser["socialLinks.twitter"] = socialLinks.twitter;
+        tyroxUser["socialLinks.youtube"] = socialLinks.youtube;
         tyroxUser.bio = bioDescription;
         tyroxUser.bioDescription = bioDescription;
         tyroxUser.updatedAt = new Date().toISOString();
-        console.log("Updated 'tyrox' user inside local_users.json");
+        console.log("Updated 'tyrox' user inside local_users.json with Madison WI profile");
       } else {
         // Create user
         users.push({
@@ -75,6 +79,10 @@ async function injectProfile() {
           enterpriseTier: "VIP Platinum Beat Maker",
           stripeConnectAccountId: "acct_tyrox_exclusive_123",
           socialLinks: { ...socialLinks },
+          "socialLinks.tiktok": socialLinks.tiktok,
+          "socialLinks.instagram": socialLinks.instagram,
+          "socialLinks.twitter": socialLinks.twitter,
+          "socialLinks.youtube": socialLinks.youtube,
           bio: bioDescription,
           bioDescription: bioDescription,
           profilePictureUrl: "/static/images/tyrox_profile.jpg",

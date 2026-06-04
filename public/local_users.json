@@ -6,16 +6,20 @@
     "enterpriseTier": "VIP Platinum Beat Maker",
     "stripeConnectAccountId": "acct_tyrox_exclusive_123",
     "socialLinks": {
-      "tiktok": "tiktok.com",
-      "instagram": "instagram.com",
-      "twitter": "twitter.com",
-      "youtube": "youtube.com"
+      "tiktok": "https://tiktok.com/@tyroxbeats",
+      "instagram": "https://instagram.com/tyrox",
+      "twitter": "https://twitter.com/tyrox",
+      "youtube": "https://youtube.com/@TyroxMadeThis"
     },
     "profilePictureUrl": "/static/images/tyrox_profile.jpg",
     "bannerPictureUrl": "/banner.jpg",
     "createdAt": "2026-06-03T21:08:00.995Z",
-    "updatedAt": "2026-06-03T21:10:14.006Z",
-    "bio": "Southside is a legendary multi-platinum record producer and the key architect of 808 Mafia. Pioneering the dark, aggressive, gritty trap sound that defined modern hip-hop, he has produced hits for Future, Drake, Travis Scott, Young Thug, and Lil Baby. This portal serves as the exclusive primary vault for unreleased custom stems and official enterprise beat licensing.",
-    "bioDescription": "Southside is a legendary multi-platinum record producer and the key architect of 808 Mafia. Pioneering the dark, aggressive, gritty trap sound that defined modern hip-hop, he has produced hits for Future, Drake, Travis Scott, Young Thug, and Lil Baby. This portal serves as the exclusive primary vault for unreleased custom stems and official enterprise beat licensing."
+    "updatedAt": "2026-06-04T01:10:00.481Z",
+    "bio": "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.",
+    "bioDescription": "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.",
+    "socialLinks.tiktok": "https://tiktok.com/@tyroxbeats",
+    "socialLinks.instagram": "https://instagram.com/tyrox",
+    "socialLinks.twitter": "https://twitter.com/tyrox",
+    "socialLinks.youtube": "https://youtube.com/@TyroxMadeThis"
   }
 ]

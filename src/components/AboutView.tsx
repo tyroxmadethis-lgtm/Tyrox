@@ -8,10 +8,10 @@ export const AboutView: React.FC = () => {
   const [editMode, setEditMode] = React.useState(false);
   const [bioText, setBioText] = React.useState(() => {
     const saved = localStorage.getItem('tyrox_bio');
-    if (saved && saved.includes("Southside")) {
+    if (saved && saved.includes("Madison")) {
       return saved;
     }
-    return "Southside is a legendary multi-platinum record producer and the key architect of 808 Mafia. Pioneering the dark, aggressive, gritty trap sound that defined modern hip-hop, he has produced hits for Future, Drake, Travis Scott, Young Thug, and Lil Baby. This portal serves as the exclusive primary vault for unreleased custom stems and official enterprise beat licensing.";
+    return "Operating straight out of Madison, Wisconsin, Tyrox is an elite multi-platinum record producer. Pioneering precision-engineered acoustic trap rhythms and aggressive dark synth lines, this portal is the definitive vault. Merging high-fidelity sub-bass architecture directly with uncompressed master stems, Tyrox delivers clinical industry-standard track assets for label-ready artists and elite engineers alike.";
   });
   const [tempBioText, setTempBioText] = React.useState(bioText);
   
@@ -41,21 +41,21 @@ export const AboutView: React.FC = () => {
       const saved = localStorage.getItem('tyrox_socials');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.tiktok && (parsed.tiktok.includes("tiktok") || parsed.tiktok.includes("tiktok.com"))) {
+        if (parsed.tiktok && (parsed.tiktok.includes("tiktok") || parsed.tiktok.includes("tyroxbeats"))) {
           return {
             tiktok: parsed.tiktok,
-            instagram: parsed.instagram || "instagram.com",
-            twitter: parsed.twitter || "twitter.com",
-            youtube: parsed.youtube || "youtube.com"
+            instagram: parsed.instagram || "https://instagram.com/tyrox",
+            twitter: parsed.twitter || "https://twitter.com/tyrox",
+            youtube: parsed.youtube || "https://youtube.com/@TyroxMadeThis"
           };
         }
       }
     } catch (e) {}
     return {
-      tiktok: "tiktok.com",
-      instagram: "instagram.com",
-      twitter: "twitter.com",
-      youtube: "youtube.com"
+      tiktok: "https://tiktok.com/@tyroxbeats",
+      instagram: "https://instagram.com/tyrox",
+      twitter: "https://twitter.com/tyrox",
+      youtube: "https://youtube.com/@TyroxMadeThis"
     };
   });
   const [tempSocials, setTempSocials] = React.useState(socials);
