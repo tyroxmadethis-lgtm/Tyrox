@@ -13,6 +13,7 @@ import { CloudTriggers } from './CloudTriggers';
 import { OwnerCoreConsole } from './OwnerCoreConsole';
 import { FinancialTelemetryStream } from './FinancialTelemetryStream';
 import TransactionLedger from './TransactionLedger';
+import { Input } from "./Input";
 
 export const VibeVaultStudio: React.FC = () => {
   const {
@@ -573,21 +574,43 @@ export const VibeVaultStudio: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="border-t border-neutral-800 pt-3">
-                  <p className="font-mono text-[9px] uppercase text-neutral-500 mb-2">Configure licensing pricing tears ($ USD)</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {['mp3', 'wav', 'unlimited', 'exclusive'].map((tier) => (
-                      <div key={tier} className="space-y-1">
-                        <label className="font-mono text-[9px] text-neutral-500 uppercase">{tier} price</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={(newPrices as any)[tier]}
-                          onChange={(e) => setNewPrices({ ...newPrices, [tier]: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-2.5 py-1.5 bg-neutral-950 border border-neutral-800 text-xs rounded-lg font-mono text-cyan-400"
-                        />
-                      </div>
-                    ))}
+                <div className="border-t border-neutral-800 pt-3 space-y-3">
+                  <p className="font-mono text-[9px] uppercase text-neutral-500 mb-1">Configure licensing pricing tiers ($ USD)</p>
+                  <div className="pricing-tier-grid">
+                    <Input
+                      label="MP3 PRICE"
+                      name="mp3Price"
+                      type="number"
+                      step="0.01"
+                      value={newPrices.mp3}
+                      onChange={(e) => setNewPrices({ ...newPrices, mp3: parseFloat(e.target.value) || 0 })}
+                    />
+                    <Input
+                      label="WAV PRICE"
+                      name="wavPrice"
+                      type="number"
+                      step="0.01"
+                      value={newPrices.wav}
+                      onChange={(e) => setNewPrices({ ...newPrices, wav: parseFloat(e.target.value) || 0 })}
+                    />
+                    <Input
+                      label="UNLIMITED"
+                      name="unlimitedPrice"
+                      type="number"
+                      step="0.01"
+                      value={newPrices.unlimited}
+                      onChange={(e) => setNewPrices({ ...newPrices, unlimited: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      label="EXCLUSIVE"
+                      name="exclusivePrice"
+                      type="number"
+                      step="0.01"
+                      value={newPrices.exclusive}
+                      onChange={(e) => setNewPrices({ ...newPrices, exclusive: parseFloat(e.target.value) || 0 })}
+                    />
                   </div>
                 </div>
 

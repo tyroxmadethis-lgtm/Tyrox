@@ -18,6 +18,7 @@ import {
   Trash2,
   Cloud
 } from "lucide-react";
+import { Input } from "./Input";
 
 interface UploadFile {
   file: File;
@@ -508,41 +509,41 @@ export const UltimateBeatUploader: React.FC = () => {
                     </span>
                   </label>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
-                  <div>
-                    <label className="text-[9px] text-neutral-500 block uppercase mb-1">MP3 Price</label>
-                    <input
+                <div className="space-y-3">
+                  <div className="pricing-tier-grid">
+                    <Input
+                      label="MP3 PRICE"
+                      name="mp3Price"
                       type="number"
+                      step="0.01"
                       value={prices.mp3}
                       onChange={(e) => setPrices({ ...prices, mp3: parseFloat(e.target.value) || 0 })}
-                      className="w-full bg-neutral-900 border border-neutral-800 p-2 text-cyan-400 rounded-lg text-xs"
                     />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-neutral-500 block uppercase mb-1">WAV Price</label>
-                    <input
+                    <Input
+                      label="WAV PRICE"
+                      name="wavPrice"
                       type="number"
+                      step="0.01"
                       value={prices.wav}
                       onChange={(e) => setPrices({ ...prices, wav: parseFloat(e.target.value) || 0 })}
-                      className="w-full bg-neutral-900 border border-neutral-800 p-2 text-cyan-400 rounded-lg text-xs"
                     />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-neutral-500 block uppercase mb-1">UNLIMITED</label>
-                    <input
+                    <Input
+                      label="UNLIMITED"
+                      name="unlimitedPrice"
                       type="number"
+                      step="0.01"
                       value={prices.unlimited}
                       onChange={(e) => setPrices({ ...prices, unlimited: parseFloat(e.target.value) || 0 })}
-                      className="w-full bg-neutral-900 border border-neutral-800 p-2 text-cyan-400 rounded-lg text-xs"
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] text-neutral-500 block uppercase mb-1">EXCLUSIVE</label>
-                    <input
+                    <Input
+                      label="EXCLUSIVE"
+                      name="exclusivePrice"
                       type="number"
+                      step="0.01"
                       value={prices.exclusive}
                       onChange={(e) => setPrices({ ...prices, exclusive: parseFloat(e.target.value) || 0 })}
-                      className="w-full bg-neutral-900 border border-neutral-800 p-2 text-cyan-400 rounded-lg text-xs"
                     />
                   </div>
                 </div>

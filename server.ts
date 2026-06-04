@@ -28,7 +28,7 @@ async function startServer() {
   // Set up storage with multer matching fieldnames and paths
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      if (file.fieldname === "profilePic" || req.path.includes("upload-photo")) {
+      if (file.fieldname === "profilePic" || file.fieldname === "avatar" || req.path.includes("upload-photo")) {
         const dest = path.join(process.cwd(), "public", "static", "images");
         fs.mkdirSync(dest, { recursive: true });
         cb(null, dest);
@@ -39,7 +39,7 @@ async function startServer() {
       }
     },
     filename: (req, file, cb) => {
-      if (file.fieldname === "profilePic" || req.path.includes("upload-photo")) {
+      if (file.fieldname === "profilePic" || file.fieldname === "avatar" || req.path.includes("upload-photo")) {
         cb(null, "tyrox_profile.jpg");
       } else {
         cb(null, "banner.jpg");
@@ -49,9 +49,64 @@ async function startServer() {
 
   const upload = multer({ storage });
 
+  // CORS Middleware matching specified rules (https://vercel.app as AllowedOrigin, PUT, POST, GET, OPTIONS as AllowedMethods, * as AllowedHeaders)
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin === "https://vercel.app" || origin?.endsWith(".vercel.app")) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    }
+    res.setHeader("Access-Control-Allow-Methods", "PUT, POST, GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", req.headers["access-control-request-headers"] || "*");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Max-Age", "86400"); // Cache preflight response for 24h
+    
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // Body parsers
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+
+  // API Router - Upload via standard /api/upload endpoint mapped in frontend
+  app.post(
+    "/api/upload",
+    upload.fields([
+      { name: "avatar", maxCount: 1 },
+      { name: "banner", maxCount: 1 },
+    ]),
+    async (req, res) => {
+      try {
+        console.log("Server received simultaneous upload at /api/upload:", req.body);
+        const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+        
+        const responseData: any = {
+          success: true,
+          message: "Files uploaded successfully to server container!",
+          avatarUrl: null,
+          bannerUrl: null,
+        };
+
+        if (filesMap) {
+          if (filesMap["avatar"] && filesMap["avatar"][0]) {
+            responseData.avatarUrl = "/static/images/tyrox_profile.jpg";
+          }
+          if (filesMap["banner"] && filesMap["banner"][0]) {
+            responseData.bannerUrl = "/banner.jpg";
+          }
+        }
+
+        res.json(responseData);
+      } catch (error: any) {
+        console.error("Upload error at /api/upload:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    }
+  );
 
   // API Router - Update Combined Profiles (supports profilePic, topBanner, bio, instagram)
   app.post(
