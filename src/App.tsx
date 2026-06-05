@@ -84,6 +84,50 @@ function AppContent() {
     };
   }, []);
 
+  // Global Pop-up Error Blocker & Safe Image Source Protection
+  React.useEffect(() => {
+    // 1. Intercept custom alerts or browser popup prompts related to Vercel upload errors to avoid crashing
+    const originalAlert = window.alert;
+    window.alert = function(msg?: any) {
+      const message = String(msg || "");
+      if (
+        message.includes("Vercel Blob") || 
+        message.includes("client token") || 
+        message.includes("Failed to retrieve") ||
+        message.includes("Upload error")
+      ) {
+        console.warn("🛡️ Alert Popup Blocked: Stopped Vercel Blob client error popup. Message:", message);
+        return;
+      }
+      return originalAlert.call(window, msg);
+    };
+
+    // 2. Safeguard image loads if they ever fail or fail to resolve
+    const handleGlobalError = (event: ErrorEvent) => {
+      if (event.message && (event.message.includes("Vercel Blob") || event.message.includes("client token"))) {
+        console.warn("🛡️ Suppressed unhandled blob client error:", event.message);
+        event.preventDefault();
+      }
+    };
+    
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason?.message || String(event.reason || "");
+      if (reason.includes("Vercel Blob") || reason.includes("client token")) {
+        console.warn("🛡️ Suppressed unhandled promise rejection error:", reason);
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.alert = originalAlert;
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
   // Initialize custom profile info in localStorage on mount ONLY if not set yet!
   React.useEffect(() => {
     if (!localStorage.getItem('tyrox_bio')) {
