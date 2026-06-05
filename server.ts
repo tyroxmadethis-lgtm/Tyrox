@@ -132,48 +132,76 @@ async function startServer() {
         if (filesMap) {
           if (filesMap["avatar"] && filesMap["avatar"][0]) {
             const fileObj = filesMap["avatar"][0];
+            let avatarSuccess = false;
             if (token) {
-              console.log("Secure token found. Uploading avatar to Vercel Blob...");
-              const fileContent = fs.readFileSync(fileObj.path);
-              const blobResult = await put(`avatars/avatar-${Date.now()}-${fileObj.originalname}`, fileContent, {
-                access: "public",
-                token: token,
-                contentType: fileObj.mimetype || "image/jpeg",
-                allowOverwrite: true,
-              });
-              responseData.avatarUrl = blobResult.url;
-              console.log("Avatar uploaded successfully to Vercel Blob:", blobResult.url);
               try {
-                fs.unlinkSync(fileObj.path);
-              } catch (err) {
-                console.warn("Failed to clean up uploaded temp file:", err);
+                console.log("Secure token found. Uploading avatar to Vercel Blob...");
+                const fileContent = fs.readFileSync(fileObj.path);
+                const blobResult = await put(`avatars/avatar-${Date.now()}-${fileObj.originalname}`, fileContent, {
+                  access: "public",
+                  token: token,
+                  contentType: fileObj.mimetype || "image/jpeg",
+                  allowOverwrite: true,
+                });
+                responseData.avatarUrl = blobResult.url;
+                console.log("Avatar uploaded successfully to Vercel Blob:", blobResult.url);
+                avatarSuccess = true;
+              } catch (err: any) {
+                console.warn("Vercel Blob avatar upload failed even with token, falling back to base64. Error:", err.message);
               }
-            } else {
-              console.log("No token present. Falling back to local container asset for avatar.");
-              responseData.avatarUrl = `/static/images/tyrox_profile.jpg?t=${Date.now()}`;
+            }
+            if (!avatarSuccess) {
+              console.log("Falling back to local container/base64 asset for avatar.");
+              try {
+                const fileContent = fs.readFileSync(fileObj.path);
+                const mimeType = fileObj.mimetype || "image/jpeg";
+                responseData.avatarUrl = `data:${mimeType};base64,${fileContent.toString("base64")}`;
+              } catch (readErr: any) {
+                console.error("Failed to read fallback local file:", readErr);
+                responseData.avatarUrl = `/static/images/tyrox_profile.jpg?t=${Date.now()}`;
+              }
+            }
+            try {
+              fs.unlinkSync(fileObj.path);
+            } catch (err) {
+              console.warn("Failed to clean up uploaded temp file:", err);
             }
           }
           if (filesMap["banner"] && filesMap["banner"][0]) {
             const fileObj = filesMap["banner"][0];
+            let bannerSuccess = false;
             if (token) {
-              console.log("Secure token found. Uploading banner to Vercel Blob...");
-              const fileContent = fs.readFileSync(fileObj.path);
-              const blobResult = await put(`banners/banner-${Date.now()}-${fileObj.originalname}`, fileContent, {
-                access: "public",
-                token: token,
-                contentType: fileObj.mimetype || "image/jpeg",
-                allowOverwrite: true,
-              });
-              responseData.bannerUrl = blobResult.url;
-              console.log("Banner uploaded successfully to Vercel Blob:", blobResult.url);
               try {
-                fs.unlinkSync(fileObj.path);
-              } catch (err) {
-                console.warn("Failed to clean up uploaded temp file:", err);
+                console.log("Secure token found. Uploading banner to Vercel Blob...");
+                const fileContent = fs.readFileSync(fileObj.path);
+                const blobResult = await put(`banners/banner-${Date.now()}-${fileObj.originalname}`, fileContent, {
+                  access: "public",
+                  token: token,
+                  contentType: fileObj.mimetype || "image/jpeg",
+                  allowOverwrite: true,
+                });
+                responseData.bannerUrl = blobResult.url;
+                console.log("Banner uploaded successfully to Vercel Blob:", blobResult.url);
+                bannerSuccess = true;
+              } catch (err: any) {
+                console.warn("Vercel Blob banner upload failed even with token, falling back to base64. Error:", err.message);
               }
-            } else {
-              console.log("No token present. Falling back to local container asset for banner.");
-              responseData.bannerUrl = `/banner.jpg?t=${Date.now()}`;
+            }
+            if (!bannerSuccess) {
+              console.log("Falling back to local container/base64 asset for banner.");
+              try {
+                const fileContent = fs.readFileSync(fileObj.path);
+                const mimeType = fileObj.mimetype || "image/jpeg";
+                responseData.bannerUrl = `data:${mimeType};base64,${fileContent.toString("base64")}`;
+              } catch (readErr: any) {
+                console.error("Failed to read fallback local file:", readErr);
+                responseData.bannerUrl = `/banner.jpg?t=${Date.now()}`;
+              }
+            }
+            try {
+              fs.unlinkSync(fileObj.path);
+            } catch (err) {
+              console.warn("Failed to clean up uploaded temp file:", err);
             }
           }
         }
