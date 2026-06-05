@@ -2,7 +2,6 @@ import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw, Music } from 'lucide-react';
 import { z } from "zod";
-import { upload } from '@vercel/blob/client';
 
 export const globalSetupSchema = z.object({
   bio: z.string().max(1000),
@@ -124,19 +123,13 @@ export const AboutView: React.FC = () => {
       }
       setUploading(true);
       try {
-        console.log("Initiating client-side avatar upload via Vercel Blob:", file.name);
-        const newBlob = await upload(file.name, file, {
-          access: 'public',
-          handleUploadUrl: '/api/avatar/upload',
-        });
-        
-        console.log("Direct Vercel Blob avatar upload successful!", newBlob.url);
-        setUploadedAvatarUrl(newBlob.url);
-        setProfilePreview(newBlob.url);
+        console.log("Local avatar file preview generated:", file.name);
+        const previewUrl = URL.createObjectURL(file);
+        setProfilePreview(previewUrl);
         setProfileFile(file);
+        setUploadedAvatarUrl(null);
       } catch (error: any) {
-        console.error("Direct avatar upload failed:", error);
-        alert(`Upload error: ${error.message || "An unknown direct upload issue occurred."}`);
+        console.error("Local profile preview error:", error);
       } finally {
         setUploading(false);
       }
@@ -152,19 +145,13 @@ export const AboutView: React.FC = () => {
       }
       setUploading(true);
       try {
-        console.log("Initiating client-side banner upload via Vercel Blob:", file.name);
-        const newBlob = await upload(file.name, file, {
-          access: 'public',
-          handleUploadUrl: '/api/avatar/upload',
-        });
-        
-        console.log("Direct Vercel Blob banner upload successful!", newBlob.url);
-        setUploadedBannerUrl(newBlob.url);
-        setBannerPreview(newBlob.url);
+        console.log("Local banner file preview generated:", file.name);
+        const previewUrl = URL.createObjectURL(file);
+        setBannerPreview(previewUrl);
         setBannerFile(file);
+        setUploadedBannerUrl(null);
       } catch (error: any) {
-        console.error("Direct banner upload failed:", error);
-        alert(`Upload error: ${error.message || "An unknown direct upload issue occurred."}`);
+        console.error("Local banner preview error:", error);
       } finally {
         setUploading(false);
       }
@@ -196,19 +183,13 @@ export const AboutView: React.FC = () => {
       }
       setUploading(true);
       try {
-        console.log("Initiating client-side banner upload via drop through Vercel Blob:", file.name);
-        const newBlob = await upload(file.name, file, {
-          access: 'public',
-          handleUploadUrl: '/api/avatar/upload',
-        });
-        
-        console.log("Direct Vercel Blob dropped banner upload successful!", newBlob.url);
-        setUploadedBannerUrl(newBlob.url);
-        setBannerPreview(newBlob.url);
+        console.log("Local dropped banner file preview generated:", file.name);
+        const previewUrl = URL.createObjectURL(file);
+        setBannerPreview(previewUrl);
         setBannerFile(file);
+        setUploadedBannerUrl(null);
       } catch (error: any) {
-        console.error("Direct dropped banner upload failed:", error);
-        alert(`Upload error: ${error.message || "An unknown direct upload issue occurred."}`);
+        console.error("Local dropped banner preview error:", error);
       } finally {
         setUploading(false);
       }
@@ -302,6 +283,23 @@ export const AboutView: React.FC = () => {
     // Start with whatever images are already successfully saved or recently uploaded client-side
     let finalizedAvatarUrl = uploadedAvatarUrl || formData.existingAvatarUrl || "";
     let finalizedBannerUrl = uploadedBannerUrl || formData.existingBannerUrl || "";
+
+    // --- STEP 2: RUN PENDING MULTIPART UPLOADS ---
+    if (formData.newAvatarFile || formData.newBannerFile) {
+      console.log("Uploading pending image files via multipart to secure local and cloud file pipeline...");
+      try {
+        const uploadResults = await uploadMediaAssets(formData.newAvatarFile, formData.newBannerFile);
+        if (uploadResults.avatarUrl) {
+          finalizedAvatarUrl = uploadResults.avatarUrl;
+        }
+        if (uploadResults.bannerUrl) {
+          finalizedBannerUrl = uploadResults.bannerUrl;
+        }
+      } catch (err: any) {
+        console.error("Asset upload step failed:", err);
+        throw new Error(`Failed to upload newly selected images: ${err.message}`);
+      }
+    }
 
     // --- STEP 3: CONSTRUCT A CLEAN PAYLOAD ---
     // Ensure every single field is passed as a verified, clean string pattern

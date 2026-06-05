@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Track } from '../types';
+import StoreProfile from './StoreProfile';
 import { 
   Instagram, 
   Youtube, 
@@ -496,6 +497,9 @@ export default function UnifiedArtistPortal() {
             </table>
           </div>
         </section>
+
+        {/* Locked Profile Configuration Panel */}
+        <StoreProfile />
 
       </main>
 
