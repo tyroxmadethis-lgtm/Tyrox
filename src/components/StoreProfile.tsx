@@ -1,9 +1,13 @@
 import React from 'react';
 
+// Direct web links mapped as requested
+const profilePictureUrl = "https://ibb.co";
+const bannerUrl = "https://ibb.co";
+
 // Dynamic import with runtime safety for environment matching
 let ASSET_CONFIG = {
-  profilePath: '/profile.jpg',
-  bannerPath: '/banner.jpg',
+  profilePath: profilePictureUrl,
+  bannerPath: bannerUrl,
   defaultPrice: '29.99',
   maxTags: 58
 };

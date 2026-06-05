@@ -3,8 +3,8 @@ const path = require('path');
 
 // 1. Define the static paths built into your production environment
 const ASSET_CONFIG = {
-  profilePath: '/profile.jpg',
-  bannerPath: '/banner.jpg',
+  profilePath: 'https://ibb.co',
+  bannerPath: 'https://ibb.co',
   defaultPrice: '29.99',
   maxTags: 58
 };
