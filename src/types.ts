@@ -13,6 +13,7 @@ export interface Track {
   tags: string[];
   imageUrl: string;
   audioUrl?: string; // Optional URL, or we synthesize it
+  price?: number;    // Single flat price
   prices: {
     mp3: number;
     wav: number;

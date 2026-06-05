@@ -44,6 +44,9 @@ const TrackSchema = new mongoose.Schema({
     percentageShare: { type: Number, required: true } // e.g., 0.50 for 50%
   }],
 
+  // Simplified pricing: Single flat price USD
+  price: { type: Number, default: 29.99 },
+
   licensingOptions: {
     basicLeasePrice: { type: Number, default: 29.99 },
     exclusivePrice: { type: Number, default: 499.99 }

@@ -119,3 +119,37 @@
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* YouTube style tags and chips */
+.tag, .chip, .yt-style-tag {
+  display: inline-block !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  padding: 6px 14px !important;
+  margin: 3px !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  font-size: 11px !important;
+  font-family: var(--font-sans), sans-serif !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.tag:hover, .chip:hover, .yt-style-tag:hover {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Active tag styling matching YouTube selection standard */
+.active-yt-tag {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+.active-yt-tag:hover {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+}
+

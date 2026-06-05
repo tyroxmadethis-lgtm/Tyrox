@@ -101,7 +101,7 @@ export const VibeVaultStudio: React.FC = () => {
   const [newKey, setNewKey] = useState('Am');
   const [newTags, setNewTags] = useState('Trap, Hard, Cyber');
   const [newImgUrl, setNewImgUrl] = useState('');
-  const [newPrices, setNewPrices] = useState({ mp3: 29.99, wav: 49.99, unlimited: 149.99, exclusive: 499.99 });
+  const [newPrices, setNewPrices] = useState({ mp3: 29.99, wav: 29.99, unlimited: 29.99, exclusive: 29.99 });
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Coupon form state
@@ -138,11 +138,12 @@ export const VibeVaultStudio: React.FC = () => {
       key: newKey,
       tags: newTags.split(',').map(t => t.trim()).filter(t => t !== ''),
       imageUrl: finalImg,
+      price: parseFloat(newPrices.mp3.toString()) || 29.99,
       prices: {
         mp3: parseFloat(newPrices.mp3.toString()) || 29.99,
-        wav: parseFloat(newPrices.wav.toString()) || 49.99,
-        unlimited: parseFloat(newPrices.unlimited.toString()) || 149.99,
-        exclusive: parseFloat(newPrices.exclusive.toString()) || 499.99
+        wav: parseFloat(newPrices.mp3.toString()) || 29.99,
+        unlimited: parseFloat(newPrices.mp3.toString()) || 29.99,
+        exclusive: parseFloat(newPrices.mp3.toString()) || 29.99
       }
     });
 
@@ -575,41 +576,18 @@ export const VibeVaultStudio: React.FC = () => {
                 </div>
 
                 <div className="border-t border-neutral-800 pt-3 space-y-3">
-                  <p className="font-mono text-[9px] uppercase text-neutral-500 mb-1">Configure licensing pricing tiers ($ USD)</p>
-                  <div className="pricing-tier-grid">
+                  <p className="font-mono text-[9px] uppercase text-neutral-500 mb-1 font-bold tracking-wider">Set Beat Flat Price ($ USD)</p>
+                  <div className="grid grid-cols-1">
                     <Input
-                      label="MP3 PRICE"
+                      label="BEAT PRICE"
                       name="mp3Price"
                       type="number"
                       step="0.01"
                       value={newPrices.mp3}
-                      onChange={(e) => setNewPrices({ ...newPrices, mp3: parseFloat(e.target.value) || 0 })}
-                    />
-                    <Input
-                      label="WAV PRICE"
-                      name="wavPrice"
-                      type="number"
-                      step="0.01"
-                      value={newPrices.wav}
-                      onChange={(e) => setNewPrices({ ...newPrices, wav: parseFloat(e.target.value) || 0 })}
-                    />
-                    <Input
-                      label="UNLIMITED"
-                      name="unlimitedPrice"
-                      type="number"
-                      step="0.01"
-                      value={newPrices.unlimited}
-                      onChange={(e) => setNewPrices({ ...newPrices, unlimited: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      label="EXCLUSIVE"
-                      name="exclusivePrice"
-                      type="number"
-                      step="0.01"
-                      value={newPrices.exclusive}
-                      onChange={(e) => setNewPrices({ ...newPrices, exclusive: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setNewPrices({ mp3: val, wav: val, unlimited: val, exclusive: val });
+                      }}
                     />
                   </div>
                 </div>
@@ -757,22 +735,10 @@ export const VibeVaultStudio: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2 font-mono text-[10px] text-center w-56">
-                      <div className="p-1 bg-neutral-900 border border-neutral-850 rounded">
-                        <span className="text-neutral-500 block">MP3</span>
-                        <span className="text-cyan-400 font-bold">${track.prices.mp3}</span>
-                      </div>
-                      <div className="p-1 bg-neutral-900 border border-neutral-850 rounded">
-                        <span className="text-neutral-500 block">WAV</span>
-                        <span className="text-cyan-400 font-bold">${track.prices.wav}</span>
-                      </div>
-                      <div className="p-1 bg-neutral-900 border border-neutral-850 rounded">
-                        <span className="text-neutral-500 block">UNL</span>
-                        <span className="text-cyan-400 font-bold">${track.prices.unlimited}</span>
-                      </div>
-                      <div className="p-1 bg-neutral-900 border border-neutral-850 rounded">
-                        <span className="text-neutral-500 block">EXC</span>
-                        <span className="text-cyan-400 font-bold">${track.prices.exclusive}</span>
+                    <div className="flex font-mono text-[10px] text-center w-56 justify-center">
+                      <div className="p-2 bg-neutral-900 border border-neutral-850 rounded w-full">
+                        <span className="text-neutral-500 block uppercase text-[8px] tracking-wider font-bold mb-0.5">Flat Beat Price</span>
+                        <span className="text-cyan-400 font-bold text-sm">${(track.price !== undefined ? track.price : track.prices?.mp3 || 29.99).toFixed(2)}</span>
                       </div>
                     </div>
 

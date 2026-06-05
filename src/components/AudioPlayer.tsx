@@ -407,7 +407,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ onOpenLicenseModal }) 
             onClick={() => onOpenLicenseModal(currentTrack)}
             className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-black text-[10px] rounded shadow-md shadow-purple-500/10 transition active:scale-95 cursor-pointer leading-tight uppercase tracking-wider"
           >
-            BUY ${currentTrack.prices.mp3.toFixed(2)}
+            BUY ${(currentTrack.price !== undefined ? currentTrack.price : currentTrack.prices?.mp3 || 29.99).toFixed(2)}
           </button>
         </div>
 

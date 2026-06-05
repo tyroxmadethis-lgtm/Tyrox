@@ -330,7 +330,8 @@ export const AboutView: React.FC = () => {
     });
 
     if (!response.ok) {
-      throw new Error("Database rejected the data format.");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.message || "Database rejected the data format.");
     }
 
     // Reflect successful saving in states and localStorage

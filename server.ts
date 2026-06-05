@@ -7,8 +7,7 @@ import { connectToDatabase } from "./lib/mongodb";
 import { User, Track } from "./lib/mongooseModels";
 import Stripe from "stripe";
 import { put } from "@vercel/blob";
-// @ts-ignore
-import { handleUpload } from "@vercel/blob/next";
+import { handleUpload } from "@vercel/blob/client";
 
 let stripeClient: Stripe | null = null;
 function getStripe(): Stripe | null {
@@ -88,10 +87,12 @@ async function startServer() {
       const jsonResponse = await handleUpload({
         body: req.body,
         request: req as any,
+        token: token,
         onBeforeGenerateToken: async (pathname, clientPayload) => {
           return {
             allowedContentTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
             tokenPayload: JSON.stringify({ userId: "tyrox" }),
+            allowOverwrite: true,
           };
         },
         onUploadCompleted: async ({ blob, tokenPayload }) => {
@@ -138,6 +139,7 @@ async function startServer() {
                 access: "public",
                 token: token,
                 contentType: fileObj.mimetype || "image/jpeg",
+                allowOverwrite: true,
               });
               responseData.avatarUrl = blobResult.url;
               console.log("Avatar uploaded successfully to Vercel Blob:", blobResult.url);
@@ -160,6 +162,7 @@ async function startServer() {
                 access: "public",
                 token: token,
                 contentType: fileObj.mimetype || "image/jpeg",
+                allowOverwrite: true,
               });
               responseData.bannerUrl = blobResult.url;
               console.log("Banner uploaded successfully to Vercel Blob:", blobResult.url);
@@ -186,6 +189,7 @@ async function startServer() {
   // API Router - Update Combined Profiles (supports profilePic, topBanner, bio, instagram)
   app.post(
     "/api/user/update-profile",
+    express.json(),
     upload.fields([
       { name: "profilePic", maxCount: 1 },
       { name: "topBanner", maxCount: 1 },
@@ -213,15 +217,65 @@ async function startServer() {
           }
         }
 
-        // Parse any incoming social information
-        if (req.body.tiktok !== undefined) updatePayload["socialLinks.tiktok"] = req.body.tiktok;
-        if (req.body.instagram !== undefined) updatePayload["socialLinks.instagram"] = req.body.instagram;
-        if (req.body.twitter !== undefined) updatePayload["socialLinks.twitter"] = req.body.twitter;
-        if (req.body.youtube !== undefined) updatePayload["socialLinks.youtube"] = req.body.youtube;
-        if (req.body.enterpriseTier !== undefined) updatePayload.enterpriseTier = req.body.enterpriseTier;
+        // Parse and check numeric or optional empty url values
+        for (const key of Object.keys(req.body)) {
+          const val = req.body[key];
+          if (val === undefined || val === null) {
+            continue;
+          }
+          
+          let sanitizedVal: any = String(val).trim();
+          
+          // Set optional URL fields to an empty string "" or null if they are empty
+          if (key.toLowerCase().includes("url") && sanitizedVal === "") {
+            sanitizedVal = null;
+          } else if (/^\d+(\.\d+)?$/.test(sanitizedVal)) {
+            // Ensure all numeric fields are explicitly converted to numbers
+            sanitizedVal = Number(sanitizedVal);
+          }
+          
+          if (key === "tiktok") updatePayload["socialLinks.tiktok"] = sanitizedVal || null;
+          else if (key === "instagram") updatePayload["socialLinks.instagram"] = sanitizedVal || null;
+          else if (key === "twitter") updatePayload["socialLinks.twitter"] = sanitizedVal || null;
+          else if (key === "youtube") updatePayload["socialLinks.youtube"] = sanitizedVal || null;
+          else if (key === "enterpriseTier") updatePayload.enterpriseTier = sanitizedVal;
+          else if (key === "bio") {
+            updatePayload.bio = sanitizedVal;
+            updatePayload.bioDescription = sanitizedVal;
+          } else {
+            updatePayload[key] = sanitizedVal;
+          }
+        }
 
-        // Perform mongoose update
-        await User.updateOne({ username: "tyrox" }, { $set: updatePayload });
+        // Perform mongoose update with robust validation and explicit column check try/catch
+        try {
+          await User.updateOne(
+            { username: "tyrox" }, 
+            { $set: updatePayload },
+            { runValidators: true }
+          );
+        } catch (dbError: any) {
+          console.error("Database update failed in /api/user/update-profile:", dbError);
+          let detailedError = "Database rejection: constraint or validation failed.";
+          let problemField = "unknown";
+          
+          if (dbError.name === "ValidationError") {
+            const errorDetails = Object.keys(dbError.errors || {}).map((key: string) => {
+              const e = dbError.errors[key];
+              problemField = e.path || key;
+              return `Column/Field [${problemField}] failed validation with message: ${e.message}`;
+            });
+            detailedError = `Database Schema ValidationError - ${errorDetails.join(" | ")}`;
+          } else if (dbError.code === 11000) {
+            const dupKeys = dbError.keyValue ? Object.keys(dbError.keyValue).join(", ") : "unknown column";
+            const dupVals = dbError.keyValue ? Object.values(dbError.keyValue).join(", ") : "";
+            problemField = dupKeys;
+            detailedError = `Database Unique Key Constraint Violated for Column [${dupKeys}]. Value [${dupVals}] already exists.`;
+          } else if (dbError.message) {
+            detailedError = `Database rejected update with error details: ${dbError.message}`;
+          }
+          return res.status(400).json({ success: false, error: detailedError, field: problemField, code: "DB_REJECTED_FORMAT" });
+        }
 
         const updatedDbUser = await User.findOne({ username: "tyrox" });
         responseData.user = updatedDbUser;
@@ -237,6 +291,7 @@ async function startServer() {
   // API Router - Upload Assets Simultaneously (supports profilePic and topBanner)
   app.post(
     "/api/user/upload-assets",
+    express.json(),
     upload.fields([
       { name: "profilePic", maxCount: 1 },
       { name: "topBanner", maxCount: 1 },
@@ -264,14 +319,65 @@ async function startServer() {
           }
         }
 
-        if (req.body.tiktok !== undefined) updatePayload["socialLinks.tiktok"] = req.body.tiktok;
-        if (req.body.instagram !== undefined) updatePayload["socialLinks.instagram"] = req.body.instagram;
-        if (req.body.twitter !== undefined) updatePayload["socialLinks.twitter"] = req.body.twitter;
-        if (req.body.youtube !== undefined) updatePayload["socialLinks.youtube"] = req.body.youtube;
-        if (req.body.enterpriseTier !== undefined) updatePayload.enterpriseTier = req.body.enterpriseTier;
+        // Parse and check numeric or optional empty url values
+        for (const key of Object.keys(req.body)) {
+          const val = req.body[key];
+          if (val === undefined || val === null) {
+            continue;
+          }
+          
+          let sanitizedVal: any = String(val).trim();
+          
+          // Set optional URL fields to an empty string "" or null if they are empty
+          if (key.toLowerCase().includes("url") && sanitizedVal === "") {
+            sanitizedVal = null;
+          } else if (/^\d+(\.\d+)?$/.test(sanitizedVal)) {
+            // Ensure all numeric fields are explicitly converted to numbers
+            sanitizedVal = Number(sanitizedVal);
+          }
+          
+          if (key === "tiktok") updatePayload["socialLinks.tiktok"] = sanitizedVal || null;
+          else if (key === "instagram") updatePayload["socialLinks.instagram"] = sanitizedVal || null;
+          else if (key === "twitter") updatePayload["socialLinks.twitter"] = sanitizedVal || null;
+          else if (key === "youtube") updatePayload["socialLinks.youtube"] = sanitizedVal || null;
+          else if (key === "enterpriseTier") updatePayload.enterpriseTier = sanitizedVal;
+          else if (key === "bio") {
+            updatePayload.bio = sanitizedVal;
+            updatePayload.bioDescription = sanitizedVal;
+          } else {
+            updatePayload[key] = sanitizedVal;
+          }
+        }
 
-        // Perform Mongoose dynamic updates
-        await User.updateOne({ username: "tyrox" }, { $set: updatePayload });
+        // Perform Mongoose dynamic updates with strict validation and detailed try/catch
+        try {
+          await User.updateOne(
+            { username: "tyrox" }, 
+            { $set: updatePayload }, 
+            { runValidators: true }
+          );
+        } catch (dbError: any) {
+          console.error("Database update failed inside simultaneous upload-assets:", dbError);
+          let detailedError = "Database rejection: constraint or validation failed.";
+          let problemField = "unknown";
+          
+          if (dbError.name === "ValidationError") {
+            const errorDetails = Object.keys(dbError.errors || {}).map((key: string) => {
+              const e = dbError.errors[key];
+              problemField = e.path || key;
+              return `Column/Field [${problemField}] failed validation with message: ${e.message}`;
+            });
+            detailedError = `Database Schema ValidationError - ${errorDetails.join(" | ")}`;
+          } else if (dbError.code === 11000) {
+            const dupKeys = dbError.keyValue ? Object.keys(dbError.keyValue).join(", ") : "unknown column";
+            const dupVals = dbError.keyValue ? Object.values(dbError.keyValue).join(", ") : "";
+            problemField = dupKeys;
+            detailedError = `Database Unique Key Constraint Violated for Column [${dupKeys}]. Value [${dupVals}] already exists.`;
+          } else if (dbError.message) {
+            detailedError = `Database rejected update with error details: ${dbError.message}`;
+          }
+          return res.status(400).json({ success: false, error: detailedError, field: problemField, code: "DB_REJECTED_FORMAT" });
+        }
 
         const updatedDbUser = await User.findOne({ username: "tyrox" });
         responseData.user = updatedDbUser;
@@ -284,38 +390,156 @@ async function startServer() {
     }
   );
 
-  // API Router - Save Global Settings
-  app.post("/api/settings/save", async (req, res) => {
+  // API Router - Create/Upload Beat/Track (with single numeric price value instead of object of tiers)
+  app.post("/api/tracks/create", express.json(), async (req, res) => {
     try {
-      const { bio, tiktokUrl, instagramUrl, twitterUrl, youtubeUrl, avatar, banner } = req.body;
-      console.log("Saving global settings:", req.body);
+      console.log("Server received track creation request payload:", req.body);
       
-      const updatePayload: any = {};
+      const title = req.body.title !== undefined ? String(req.body.title).trim() : "";
       
-      if (bio !== undefined) {
-        updatePayload.bio = bio;
-        updatePayload.bioDescription = bio;
-      }
-      
-      if (tiktokUrl !== undefined) updatePayload["socialLinks.tiktok"] = tiktokUrl;
-      if (instagramUrl !== undefined) updatePayload["socialLinks.instagram"] = instagramUrl;
-      if (twitterUrl !== undefined) updatePayload["socialLinks.twitter"] = twitterUrl;
-      if (youtubeUrl !== undefined) updatePayload["socialLinks.youtube"] = youtubeUrl;
-      
-      if (avatar !== undefined && avatar !== "") {
-        updatePayload.profilePictureUrl = avatar;
-      }
-      if (banner !== undefined && banner !== "") {
-        updatePayload.bannerPictureUrl = banner;
+      if (!title) {
+        return res.status(400).json({ success: false, error: "Missing required field: title is mandatory." });
       }
 
-      await User.updateOne({ username: "tyrox" }, { $set: updatePayload });
+      // Ensure all decimal inputs are explicitly parsed using parseFloat(price) before executing database operations
+      const rawPrice = req.body.price;
+      const parsedPrice = rawPrice !== undefined ? parseFloat(String(rawPrice)) : 29.99;
+      
+      if (isNaN(parsedPrice)) {
+        return res.status(400).json({ success: false, error: "Data format rejected: price must be a valid numeric value.", field: "price" });
+      }
+
+      // Ensure numeric BPM is parsed correctly as number
+      const rawBpm = req.body.bpm;
+      const parsedBpm = rawBpm !== undefined ? parseInt(String(rawBpm), 10) : 140;
+
+      // Find user to associate with
+      const user = await User.findOne({ username: "tyrox" });
+      const producerId = user ? user._id : "6459fa4f8f4a13bf8eabcc1a";
+
+      const newTrackPayload = {
+        title,
+        producerId: producerId,
+        audioFileUrl: req.body.audioFileUrl ? String(req.body.audioFileUrl).trim() : "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad",
+        stemsFileUrl: req.body.stemsFileUrl ? String(req.body.stemsFileUrl).trim() : "",
+        price: parsedPrice,
+        licensingOptions: {
+          basicLeasePrice: parsedPrice,
+          exclusivePrice: parsedPrice
+        }
+      };
+
+      // Wrap the database update query in a clear try/catch block that returns a helpful, explicit error string if schema validation fails
+      try {
+        const doc = await Track.create(newTrackPayload);
+        res.status(201).json({ success: true, message: "Track registered in database successfully!", track: doc });
+      } catch (dbError: any) {
+        console.error("Database save failed inside track creation:", dbError);
+        let detailedError = "Database rejected the data format.";
+        let problemField = "unknown";
+        
+        if (dbError.name === "ValidationError") {
+          const errorDetails = Object.keys(dbError.errors || {}).map((key: string) => {
+            const e = dbError.errors[key];
+            problemField = e.path || key;
+            return `Column/Field [${problemField}] failed validation with message: ${e.message}`;
+          });
+          detailedError = `Database Schema ValidationError - ${errorDetails.join(" | ")}`;
+        } else if (dbError.message) {
+          detailedError = `Database rejected save with error details: ${dbError.message}`;
+        }
+        res.status(400).json({ success: false, error: detailedError, field: problemField });
+      }
+    } catch (error: any) {
+      console.error("Track creation handler error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // API Router - Save Global Settings
+  app.post("/api/settings/save", express.json(), async (req, res) => {
+    try {
+      console.log("Saving global settings - RAW request:", req.body);
+      
+      // 1. Explicitly sanitize & type-cast all incoming fields
+      // Ensure strings are strings, numbers are numbers
+      const rawBio = req.body.bio !== undefined ? String(req.body.bio).trim() : undefined;
+      
+      // Sanitizing optional URL fields. If they are empty, we explicitly set them to empty string "" or null (empty string "" matches schema default)
+      const rawTiktok = req.body.tiktokUrl !== undefined ? (String(req.body.tiktokUrl).trim() || "") : undefined;
+      const rawInstagram = req.body.instagramUrl !== undefined ? (String(req.body.instagramUrl).trim() || "") : undefined;
+      const rawTwitter = req.body.twitterUrl !== undefined ? (String(req.body.twitterUrl).trim() || "") : undefined;
+      const rawYoutube = req.body.youtubeUrl !== undefined ? (String(req.body.youtubeUrl).trim() || "") : undefined;
+      
+      const rawAvatar = req.body.avatar !== undefined ? String(req.body.avatar).trim() : undefined;
+      const rawBanner = req.body.banner !== undefined ? String(req.body.banner).trim() : undefined;
+
+      const updatePayload: any = {};
+      
+      if (rawBio !== undefined) {
+        updatePayload.bio = rawBio;
+        updatePayload.bioDescription = rawBio;
+      }
+      
+      // Ensure optional URL fields send an empty string "" or null if they are empty
+      if (rawTiktok !== undefined) updatePayload["socialLinks.tiktok"] = rawTiktok || null;
+      if (rawInstagram !== undefined) updatePayload["socialLinks.instagram"] = rawInstagram || null;
+      if (rawTwitter !== undefined) updatePayload["socialLinks.twitter"] = rawTwitter || null;
+      if (rawYoutube !== undefined) updatePayload["socialLinks.youtube"] = rawYoutube || null;
+      
+      if (rawAvatar !== undefined) {
+        updatePayload.profilePictureUrl = rawAvatar || null;
+      }
+      if (rawBanner !== undefined) {
+        updatePayload.bannerPictureUrl = rawBanner || null;
+      }
+
+      console.log("Saving global settings - Structured Update Payload:", updatePayload);
+
+      // Wrap update query in explicit try/catch block with explicit column metadata
+      try {
+        await User.updateOne(
+          { username: "tyrox" },
+          { 
+            $set: updatePayload,
+            $setOnInsert: { email: "tyroxmadethis@gmail.com" }
+          },
+          { upsert: true, runValidators: true }
+        );
+      } catch (dbError: any) {
+        console.error("Database schema update failed:", dbError);
+        let detailedError = "Database rejection: constraint or validation failed.";
+        let problemField = "unknown";
+        
+        if (dbError.name === "ValidationError") {
+          const fieldErrors = Object.keys(dbError.errors || {}).map((key: string) => {
+            const e = dbError.errors[key];
+            problemField = e.path || key;
+            return `Column/Field [${problemField}] failed constraint validation: ${e.message}`;
+          });
+          detailedError = `Database Schema ValidationError on: ${fieldErrors.join(" | ")}`;
+        } else if (dbError.code === 11000) {
+          const dupKeys = dbError.keyValue ? Object.keys(dbError.keyValue).join(", ") : "unknown column";
+          const dupVals = dbError.keyValue ? Object.values(dbError.keyValue).join(", ") : "";
+          problemField = dupKeys;
+          detailedError = `Database Unique Key Constraint Violated for Column [${dupKeys}]. Value [${dupVals}] already exists.`;
+        } else if (dbError.message) {
+          detailedError = `Database rejected update on user profile with error details: ${dbError.message}`;
+        }
+        
+        return res.status(400).json({ 
+          success: false, 
+          error: detailedError, 
+          field: problemField,
+          code: "DB_REJECTED_FORMAT" 
+        });
+      }
 
       const updatedDbUser = await User.findOne({ username: "tyrox" });
       res.json({ success: true, message: "Settings saved successfully!", user: updatedDbUser });
     } catch (error: any) {
       console.error("Save global settings error:", error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: error.message || "An unknown server error occurred." });
     }
   });
 
@@ -421,8 +645,8 @@ async function startServer() {
         return res.status(404).json({ error: "Track not found in platform index." });
       }
 
-      // Determine target payment price (exclusive price field)
-      const exclusivePrice = trackDoc.licensingOptions?.exclusivePrice || 499.99;
+      // Determine target payment price (support single flat price schema natively)
+      const exclusivePrice = trackDoc.price || trackDoc.licensingOptions?.exclusivePrice || 499.99;
       const totalAmountCents = Math.round(exclusivePrice * 100);
 
       // 2. Query the primary producer's connected Stripe ID

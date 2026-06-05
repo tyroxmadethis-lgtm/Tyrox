@@ -21,59 +21,17 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ track, onClose }) =>
   const tiers = [
     {
       id: 'mp3' as const,
-      name: 'MP3 Lease',
-      price: track.prices.mp3,
-      format: 'High-Quality 320kbps MP3',
-      popular: false,
-      benefits: [
-        'Used for commercial vocal recording',
-        'Distribute up to 10,000 streams/copies',
-        'Non-Exclusive leasing rights (remains in shop)',
-        'Standard PDF contract issued instantly'
-      ],
-      tagline: 'Perfect for upcoming artists, social creators, and clean vocal demos.'
-    },
-    {
-      id: 'wav' as const,
-      name: 'WAV Lease',
-      price: track.prices.wav,
-      format: '24-Bit Uncompressed WAV Master',
+      name: 'Standard Premium License',
+      price: track.price !== undefined ? track.price : track.prices?.mp3 || 29.99,
+      format: 'High-Quality Master WAV + 320kbps MP3 Included',
       popular: true,
       benefits: [
-        'High-fidelity WAV stream + MP3 included',
-        'Distribute up to 50,000 streams/copies',
-        'Commercial monetization permitted across Spotify/Apple',
-        'Standard radio broadcast cleared (local)'
+        'Used for commercial vocal recording & streaming releases',
+        'Distribute unlimited streams & copies under standard leasing',
+        'Non-exclusive rights (track remains available in catalog)',
+        'Uncompressed master wav file with all stem elements'
       ],
-      tagline: 'Best value for standard single releases, active streaming, and mixtapes.'
-    },
-    {
-      id: 'unlimited' as const,
-      name: 'Unlimited WAV',
-      price: track.prices.unlimited,
-      format: 'WAV Master + Sepatated Audio Stems',
-      popular: false,
-      benefits: [
-        'Complete trackout STEM layers (isolated instruments/drums)',
-        'UNCAPPED streams & commercial sales globally',
-        'Limitless performance monetization cleared',
-        'Suitability for professional studio mixing'
-      ],
-      tagline: 'Enables professional mixing using separated audio channels and endless distribution.'
-    },
-    {
-      id: 'exclusive' as const,
-      name: 'Exclusive Rights',
-      price: track.prices.exclusive,
-      format: 'Ownership Transfer & MIDI + Stems',
-      popular: false,
-      benefits: [
-        'Sole mechanical/composition ownership transfer',
-        'Beat catalog removal (track taken down from storefront)',
-        'Infinite commercial streams & uncapped performance sales',
-        'Commercial sync rights for film, television, and game placements'
-      ],
-      tagline: 'Establish absolute unique ownership, remove future leases, and capture 100% royal streams.'
+      tagline: 'Definitive full-fidelity master delivery of physical and digital assets, signed by TYROX.'
     }
   ];
 

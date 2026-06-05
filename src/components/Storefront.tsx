@@ -405,10 +405,10 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                 <button
                   key={tag}
                   onClick={() => setSelectedTag(tag)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-sans font-semibold transition cursor-pointer whitespace-nowrap ${
+                  className={`chip yt-style-tag uppercase whitespace-nowrap ${
                     selectedTag === tag
-                      ? 'bg-accent-green text-black shadow-md shadow-accent-green/10'
-                      : 'bg-panel-bg text-neutral-400 border border-neutral-850 hover:bg-neutral-800 hover:text-neutral-200'
+                      ? 'active-yt-tag'
+                      : ''
                   }`}
                 >
                   {tag}
@@ -541,7 +541,8 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                            <span 
                              key={tag} 
                              onClick={() => setSelectedTag(tag)}
-                             className="font-sans text-[10px] bg-purple-900/30 text-purple-400 border border-purple-500/10 hover:bg-purple-950 font-semibold px-2.5 py-0.5 rounded-full cursor-pointer transition uppercase whitespace-nowrap"
+                             className="tag yt-style-tag font-sans text-[9px] uppercase whitespace-nowrap cursor-pointer hover:opacity-95"
+                              style={{ padding: '3px 9px', fontSize: '9px', margin: '1px' }}
                            >
                              {tag}
                            </span>
@@ -580,11 +581,11 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                          {/* White Cart Price Button */}
                          <div className="relative">
                            <button
-                             onClick={() => setActiveQuickPriceTrackId(isQuickMenuOpen ? null : track.id)}
+                             onClick={() => handleQuickAdd(track, 'mp3')}
                              className="h-8 px-3 md:px-4 bg-white text-black hover:bg-neutral-150 font-sans font-extrabold text-[11px] rounded transition active:scale-95 flex items-center gap-1.5 cursor-pointer uppercase tracking-tight"
                            >
                              <ShoppingBag size={11.5} />
-                             <span>+ ${track.prices.mp3.toFixed(2)}</span>
+                             <span>+ ${(track.price !== undefined ? track.price : track.prices?.mp3 || 29.99).toFixed(2)}</span>
                            </button>
  
                            {/* Quick Add Menu Dropdown Popover */}
