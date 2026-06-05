@@ -202,32 +202,14 @@ function AppContent() {
   return (
     <div id="vibe-vault-root" className="min-h-screen bg-bg-dark text-neutral-100 flex flex-col font-sans select-none antialiased selection:bg-accent-green/20 selection:text-white">
       
-      {/* Absolute Top Premium Header Background Banner */}
-      <div 
-        id="top-website-banner-box"
-        className="w-full h-32 sm:h-40 md:h-48 relative overflow-hidden flex items-center justify-center bg-neutral-950 border-b border-neutral-900/60"
-        style={{
-          backgroundImage: `url('${bannerImg}')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {/* Dark overlay with elegant gradient/vignette for premium layout feel and strict readability */}
-        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-bg-dark via-transparent to-black/25 pointer-events-none" />
-        <div className="absolute inset-0 bg-[#050608]/40 pointer-events-none" />
-        
-        {/* Ambient Overlay Content to emphasize branding and layout authority */}
-        <div className="relative z-10 text-center select-none pointer-events-none px-4">
-          <p className="text-purple-400 font-mono text-[9px] md:text-xs tracking-[0.35em] uppercase mb-1 drop-shadow font-bold animate-pulse">
-            OFFICIAL ARTIST PORTAL
-          </p>
-          <h2 className="text-2xl md:text-4xl font-sans font-black uppercase tracking-widest text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
-            TYROX MADE THIS
-          </h2>
-          <p className="text-neutral-300 text-[10px] md:text-sm tracking-wide mt-1.5 font-light max-w-lg mx-auto drop-shadow-md">
-            Premium Rap Licensing • High-Contrast Audio Waveforms • Zero Middlemen
-          </p>
-        </div>
+      {/* SAFE TEXT-ONLY HEADER THAT CANNOT CRASH */}
+      <div id="top-website-banner-box" style={{ width: '100%', padding: '40px 20px', textAlign: 'center', borderBottom: '1px solid #111', background: '#0a0a0a' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#ffffff', margin: 0, letterSpacing: '2px' }} className="font-sans uppercase">
+          TYROX MADE THIS
+        </h1>
+        <p style={{ color: '#00ff66', fontSize: '14px', marginTop: '8px', fontWeight: 'bold', letterSpacing: '1px' }} className="font-mono">
+          PREMIUM RAP PRODUCER PORTAL • ONLINE
+        </p>
       </div>
 
       {/* Premium Top Navigation header - themed to background */}
