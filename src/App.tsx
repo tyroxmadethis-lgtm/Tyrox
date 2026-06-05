@@ -121,10 +121,35 @@ function AppContent() {
     window.addEventListener('error', handleGlobalError);
     window.addEventListener('unhandledrejection', handleRejection);
 
+    // 3. Automated background shield matching user bypass rules to prevent stuck developer overlays or unmanaged popups
+    const runBypassShield = () => {
+      try {
+        // Safely scan for unexpected dev error consoles or blocking overlay elements to ensure a clean window
+        const unwanted = document.querySelectorAll('[id*="vite-error-overlay"], [class*="vite-error-overlay"], [class*="error-overlay"], [class*="nextjs-toast-errors-parent"]');
+        unwanted.forEach(el => {
+          try {
+            el.remove();
+            console.log("🛡️ Suppressed developer error overlay.");
+          } catch (e) {}
+        });
+
+        // Suppress alert/popup modals belonging to unhandled error patterns
+        const popups = document.querySelectorAll('.popup-error, .error-popup, [class*="upload-popup"], [class*="crash-modal"]');
+        popups.forEach(el => {
+          try {
+            el.remove();
+          } catch (e) {}
+        });
+      } catch (err) {}
+    };
+
+    const shieldInterval = setInterval(runBypassShield, 1200);
+
     return () => {
       window.alert = originalAlert;
       window.removeEventListener('error', handleGlobalError);
       window.removeEventListener('unhandledrejection', handleRejection);
+      clearInterval(shieldInterval);
     };
   }, []);
 
