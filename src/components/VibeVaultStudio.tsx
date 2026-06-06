@@ -784,15 +784,18 @@ export const VibeVaultStudio: React.FC = () => {
                       )}
                       <button
                         onClick={() => {
-                          if (confirm(`Remove "${track.title}" from catalog permanently?`)) {
+                          if (confirm("Are you sure you want to permanently delete this track?")) {
                             deleteTrack(track.id);
                             addNotification(`REMOVED // Catalog pruned: "${track.title}"`);
                           }
                         }}
-                        className="p-2 hover:bg-neutral-900 text-neutral-500 hover:text-red-400 rounded-lg transition border border-transparent hover:border-neutral-800 cursor-pointer"
+                        className="delete-btn p-2 hover:bg-neutral-900 text-neutral-500 hover:text-red-400 rounded-lg transition border border-transparent hover:border-neutral-800 cursor-pointer"
                         title="Delete track"
                       >
-                        <Trash2 size={13} />
+                        <span className="trash-icon flex items-center gap-1.5 font-mono text-[11px]">
+                          <Trash2 size={13} />
+                          <span>🗑️</span>
+                        </span>
                       </button>
                     </div>
                   </div>

@@ -458,14 +458,35 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const deleteTrack = (id: string) => {
+  const deleteTrack = async (id: string) => {
     if (currentTrack?.id === id) {
       AudioSynth.stop();
       setCurrentTrack(null);
       setIsPlaying(false);
     }
+    
+    // Optimistic UI state updates
     setTracks(prev => prev.filter(t => t.id !== id));
     setCart(prev => prev.filter(item => item.track.id !== id));
+
+    try {
+      console.log(`Sending delete request straight to server api for track: ${id}`);
+      const response = await fetch(`/api/delete-track/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.warn(`Server audio file removal reported warning: ${errorData.error || response.statusText}`);
+      } else {
+        console.log(`Track ${id} and associated file successfully purged on host server.`);
+      }
+    } catch (error) {
+      console.error("Failed to execute delete on the host server network link:", error);
+    }
   };
 
   // Cart operations

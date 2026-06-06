@@ -1522,6 +1522,223 @@ async function startServer() {
     }
   });
 
+  // API Router - Delete Track and Physical Files Permanently
+  app.delete("/api/delete-track/:track_id", async (req, res) => {
+    try {
+      const trackId = req.params.track_id;
+      if (!trackId) {
+        return res.status(400).json({ error: "Missing required parameter: track_id" });
+      }
+
+      console.log(`Executing deletion request for track ID: ${trackId}`);
+
+      let fileDeleted = false;
+      try {
+        // 1. Try to fetch the track doc details to extract any filenames
+        const trackDoc = await Track.findById(trackId);
+        if (trackDoc) {
+          const audioUrl = trackDoc.audioFileUrl || trackDoc.audio_url || "";
+          if (audioUrl) {
+            const lastSlash = audioUrl.lastIndexOf('/');
+            if (lastSlash !== -1) {
+              const filename = audioUrl.substring(lastSlash + 1);
+              const possiblePaths = [
+                path.join(process.cwd(), "public", "converted", filename),
+                path.join(process.cwd(), "public", filename),
+                path.join(process.cwd(), "processed_beats", filename),
+                path.join(process.cwd(), "uploads", filename)
+              ];
+              for (const p of possiblePaths) {
+                if (fs.existsSync(p)) {
+                  try {
+                    fs.unlinkSync(p);
+                    console.log(`Unlinked track file from path: ${p}`);
+                    fileDeleted = true;
+                  } catch (err) {
+                    console.warn(`Failed to delete file at ${p}:`, err);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not retrieve track document during file cleanup phase:", err);
+      }
+
+      // 2. Fallback scans inside local folders using track_id as a selector
+      const processedBeatsFolder = path.join(process.cwd(), "processed_beats");
+      const convertedFolder = path.join(process.cwd(), "public", "converted");
+      const uploadsFolder = path.join(process.cwd(), "uploads");
+      const uploadedBeatsFolder = path.join(process.cwd(), "uploaded_beats");
+
+      const checkAndUnlink = (dir: string, pattern: string) => {
+        if (fs.existsSync(dir)) {
+          try {
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+              if (file.includes(pattern)) {
+                try {
+                  fs.unlinkSync(path.join(dir, file));
+                  console.log(`Pristine dynamic unlinked matched track file: ${file}`);
+                  fileDeleted = true;
+                } catch (fsErr) {
+                  console.warn(`Unlink failed for ${file}:`, fsErr);
+                }
+              }
+            }
+          } catch (dirErr) {
+            console.warn(`Directory read failure in ${dir}:`, dirErr);
+          }
+        }
+      };
+
+      checkAndUnlink(processedBeatsFolder, trackId);
+      checkAndUnlink(convertedFolder, trackId);
+      checkAndUnlink(uploadsFolder, trackId);
+      checkAndUnlink(uploadedBeatsFolder, trackId);
+
+      // 3. Clear database entry
+      const dbResult = await Track.deleteOne({ _id: trackId });
+
+      return res.status(200).json({
+        success: true,
+        message: "Track files permanently removed from server",
+        dbResult,
+        fileDeleted
+      });
+    } catch (error: any) {
+      console.error("Server track deletion handler failed:", error);
+      return res.status(500).json({ error: `Server failed to remove file: ${error.message || error}` });
+    }
+  });
+
+  // API Router - Pure Streaming Endpoint (Serves lossless binary blocks directly to browser codecs)
+  app.get("/api/stream-pure/:track_id", async (req, res) => {
+    try {
+      const trackId = req.params.track_id;
+      if (!trackId) {
+        return res.status(400).json({ error: "Missing required parameter: track_id" });
+      }
+
+      console.log(`Pristine Pure stream request for track ID: ${trackId}`);
+
+      let file_path = "";
+      let filename = "";
+
+      // 1. Check for registered track document
+      try {
+        const trackDoc = await Track.findById(trackId);
+        if (trackDoc) {
+          const audioUrl = trackDoc.audioFileUrl || trackDoc.audio_url || "";
+          if (audioUrl) {
+            const lastSlash = audioUrl.lastIndexOf('/');
+            if (lastSlash !== -1) {
+              filename = audioUrl.substring(lastSlash + 1);
+              const possiblePaths = [
+                path.join(process.cwd(), "public", "converted", filename),
+                path.join(process.cwd(), "public", filename),
+                path.join(process.cwd(), "processed_beats", filename),
+                path.join(process.cwd(), "uploaded_beats", filename),
+                path.join(process.cwd(), "uploads", filename)
+              ];
+              for (const p of possiblePaths) {
+                if (fs.existsSync(p)) {
+                  file_path = p;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("DB lookup error inside pure stream pipeline:", err);
+      }
+
+      // 2. Directory lookups fallback using ID matching
+      if (!file_path) {
+        const searchDirs = [
+          path.join(process.cwd(), "uploaded_beats"),
+          path.join(process.cwd(), "processed_beats"),
+          path.join(process.cwd(), "public", "converted"),
+          path.join(process.cwd(), "uploads")
+        ];
+        
+        for (const dir of searchDirs) {
+          if (fs.existsSync(dir)) {
+            try {
+              const files = fs.readdirSync(dir);
+              const foundFile = files.find(f => f.includes(trackId));
+              if (foundFile) {
+                file_path = path.join(dir, foundFile);
+                filename = foundFile;
+                break;
+              }
+            } catch (rErr) {}
+          }
+        }
+      }
+
+      // 3. Fallback direct file projection
+      if (!file_path) {
+        const directWav = path.join(process.cwd(), "uploaded_beats", `${trackId}.wav`);
+        const directMp3 = path.join(process.cwd(), "uploaded_beats", `${trackId}.mp3`);
+        if (fs.existsSync(directWav)) {
+          file_path = directWav;
+          filename = `${trackId}.wav`;
+        } else if (fs.existsSync(directMp3)) {
+          file_path = directMp3;
+          filename = `${trackId}.mp3`;
+        }
+      }
+
+      if (!file_path || !fs.existsSync(file_path)) {
+        return res.status(404).json({ error: "Original high-fidelity file not found on storage server" });
+      }
+
+      // Determine MIME Type based on physical extension
+      let mime_type = "audio/mpeg";
+      if (filename.toLowerCase().endsWith('.wav')) {
+        mime_type = "audio/wav";
+      } else if (filename.toLowerCase().endsWith('.m4a')) {
+        mime_type = "audio/mp4";
+      }
+
+      const stat = fs.statSync(file_path);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      // Set force headers declaring this as an authentic stream to prevent caching/transformations
+      res.setHeader("Content-Type", mime_type);
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const fileStream = fs.createReadStream(file_path, { start, end });
+
+        res.writeHead(206, {
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunksize,
+        });
+        fileStream.pipe(res);
+      } else {
+        res.writeHead(200, {
+          "Content-Length": fileSize,
+          "Accept-Ranges": "bytes",
+        });
+        fs.createReadStream(file_path).pipe(res);
+      }
+    } catch (error: any) {
+      console.error("Pure streaming handler failed:", error);
+      return res.status(500).json({ error: "Internal server processing error" });
+    }
+  });
 
   // API Router - Upload Banner
   app.post("/admin/about/upload-banner", upload.single("file"), (req, res) => {

@@ -294,6 +294,29 @@ const MockTrack = {
     list.push(newDoc);
     mockStore.writeTracks(list);
     return newDoc;
+  },
+  deleteOne: async (query: any) => {
+    const list = mockStore.readTracks();
+    let deletedCount = 0;
+    const filtered = list.filter(t => {
+      let match = true;
+      if (query._id && t._id !== query._id) match = false;
+      if (query.title && t.title !== query.title) match = false;
+      if (match) {
+        deletedCount++;
+        return false;
+      }
+      return true;
+    });
+    mockStore.writeTracks(filtered);
+    return { deletedCount };
+  },
+  findByIdAndDelete: async (id: string) => {
+    const list = mockStore.readTracks();
+    const found = list.find(t => t._id === id);
+    const filtered = list.filter(t => t._id !== id);
+    mockStore.writeTracks(filtered);
+    return found || null;
   }
 };
 
