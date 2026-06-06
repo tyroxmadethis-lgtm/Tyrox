@@ -35,6 +35,13 @@ const TrackSchema = new mongoose.Schema({
   title: { type: String, required: true },
   producerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   audioFileUrl: { type: String, required: true }, // Stored on Cloudflare R2
+  audio_url: { type: String }, // support alias
+  imageUrl: { type: String, default: "" }, // Beat cover/artwork URL
+  image_url: { type: String, default: "" }, // support alias
+  bpm: { type: Number, default: 140 },
+  key: { type: String, default: "Am" },
+  genre: { type: String, default: "" },
+  tags: [{ type: String }],
   stemsFileUrl: { type: String },
   acousticFingerprint: { type: String }, // Used for automated web-scraping copyright protection
 

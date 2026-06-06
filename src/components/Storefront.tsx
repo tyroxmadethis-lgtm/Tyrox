@@ -14,6 +14,8 @@ import {
 import { PayPalCheckout } from './PayPalCheckout';
 import { apiFetch } from '../services/apiMock';
 import FreeDownloadGateModal from './FreeDownloadGateModal';
+import BeatStreamPlayer from './BeatStreamPlayer';
+import BeatCatalogGrid from './BeatCatalogGrid';
 
 interface StorefrontProps {
   onOpenLicenseModal: (track: Track) => void;
@@ -126,6 +128,9 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
       prev.includes(trackId) ? prev.filter(id => id !== trackId) : [...prev, trackId]
     );
   };
+
+  // View mode switcher: 'list' for high-density rows, 'grid' for new BeatCatalogGrid
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 
   // Extract unique tags
   const allTags = ['All', ...Array.from(new Set(tracks.flatMap(t => t.tags)))];
@@ -398,6 +403,24 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
         {/* Left column (col-span-8): Multi-column high-density BeatStars grid */}
         <div className="lg:col-span-8 flex flex-col gap-4">
           
+          {/* Spotlight Beat Stream Player Card */}
+          {tracks.length > 0 && (
+            <div className="bg-[#0b0c10] border border-neutral-900/60 rounded-2xl p-5 mb-2 shadow-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles size={14} className="text-[#39FF14]" />
+                <span className="text-[10px] font-mono text-[#39FF14] uppercase tracking-wider font-extrabold">Spotlight Preview Stream</span>
+              </div>
+              <p className="text-xs text-neutral-400 mb-4 font-sans leading-relaxed">
+                Stream our current prime acoustic trap master straight from the Madison Wisconsin vault using our premium native stream player.
+              </p>
+              <BeatStreamPlayer 
+                trackTitle={tracks[0].title}
+                previewUrl={tracks[0].audioUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"}
+                trackPrice={`$${(tracks[0].price !== undefined ? tracks[0].price : 29.99).toFixed(2)}`}
+              />
+            </div>
+          )}
+          
           {/* Subheader and tags filters */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-900 pb-3">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
@@ -416,15 +439,48 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
               ))}
             </div>
 
-            <div className="flex items-center gap-2 text-[10px] font-mono text-neutral-500 uppercase shrink-0">
-              <SlidersHorizontal size={11} className="text-accent-green" />
-              <span>{filteredTracks.length} beats matched</span>
+            <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
+              {/* Responsive Layout Switcher */}
+              <div className="flex items-center gap-1 bg-neutral-950 p-1 border border-neutral-900 rounded-lg">
+                <button
+                  type="button"
+                  id="view-mode-grid"
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-1 text-[10px] font-mono rounded uppercase tracking-widest transition cursor-pointer font-bold ${
+                    viewMode === 'grid'
+                      ? 'bg-[#39FF14] text-black font-extrabold shadow-[0_0_8px_rgba(57,255,20,0.4)]'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Cover Grid
+                </button>
+                <button
+                  type="button"
+                  id="view-mode-list"
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1 text-[10px] font-mono rounded uppercase tracking-widest transition cursor-pointer font-bold ${
+                    viewMode === 'list'
+                      ? 'bg-[#39FF14] text-black font-extrabold shadow-[0_0_8px_rgba(57,255,20,0.4)]'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Row List
+                </button>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-mono text-neutral-500 uppercase shrink-0">
+                <SlidersHorizontal size={11} className="text-[#39FF14]" />
+                <span>{filteredTracks.length} beats matched</span>
+              </div>
             </div>
           </div>
 
           {/* High-density dark track list table/grid */}
           <div className="space-y-2">
-            {filteredTracks.length === 0 ? (
+            {viewMode === 'grid' ? (
+              <div id="beats-grid-wrapper" className="pt-2">
+                <BeatCatalogGrid />
+              </div>
+            ) : filteredTracks.length === 0 ? (
               <div id="empty-store-grid" className="p-16 text-center rounded-2xl bg-panel-bg border border-neutral-900">
                 <Music size={28} className="mx-auto text-neutral-600 mb-2 animate-bounce" />
                 <p className="text-neutral-400 font-sans text-xs uppercase tracking-wider font-bold">No active beats found</p>
@@ -478,13 +534,13 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                          {/* Play Action button overlay over Artwork */}
                          <div 
                            onClick={() => playTrack(track)}
-                           className="relative group w-11 h-11 rounded overflow-hidden flex-shrink-0 border border-neutral-850 shadow-md cursor-pointer"
+                           className="relative group w-11 h-11 rounded-sm overflow-hidden flex-shrink-0 border border-neutral-850 shadow-md cursor-pointer bg-black flex items-center justify-center"
                          >
                            <img 
                              src={track.imageUrl} 
                              alt={track.title} 
                              referrerPolicy="no-referrer"
-                             className="w-full h-full object-cover group-hover:scale-105 duration-300"
+                             className="w-full h-full object-contain group-hover:scale-105 duration-300"
                            />
                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-150">
                              {isSelectedAndPlaying ? (
@@ -691,6 +747,18 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                       <p>License: <b className="text-neutral-200">{checkoutReceipt.legalContract.licenseType}</b></p>
                       <p>Issued To: <b className="text-neutral-200">{checkoutReceipt.legalContract.issuedTo}</b></p>
                       <p>Signature Hash: <b className="text-neutral-300">{checkoutReceipt.legalContract.digitalSignatureHash}</b></p>
+                      {checkoutReceipt.legalContract.trackId && (
+                        <div className="mt-2 border-t border-purple-500/10 pt-1.5">
+                          <a 
+                            href={`/api/contracts/download-pdf?orderId=${checkoutReceipt.legalContract.digitalSignatureHash}&trackId=${checkoutReceipt.legalContract.trackId}`}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[10px] uppercase font-black text-[#39FF14] hover:underline flex items-center gap-1.5 mt-1"
+                          >
+                            <span>📄 Download Signed PDF Contract</span>
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

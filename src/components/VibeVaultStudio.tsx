@@ -6,8 +6,11 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Track, Coupon, LicensingContract } from '../types';
-import { DollarSign, BarChart3, Radio, FileText, Percent, Globe, ShieldAlert, Cpu, CircleHelp, Trash2, Edit2, Plus, Sparkles, Check, RefreshCw, Send, CheckCircle, ExternalLink, Copy, Shield, Image as ImageIcon } from 'lucide-react';
+import { DollarSign, BarChart3, Radio, FileText, Percent, Globe, ShieldAlert, Cpu, CircleHelp, Trash2, Edit2, Plus, Sparkles, Check, RefreshCw, Send, CheckCircle, ExternalLink, Copy, Shield, Image as ImageIcon, Settings, Music, Sliders } from 'lucide-react';
 import { UltimateBeatUploader } from './UltimateBeatUploader';
+import AudioTranscoder from './AudioTranscoder';
+import AudioSoundMatcher from './AudioSoundMatcher';
+import DashboardSettings from './DashboardSettings';
 import { CoverArtOptimizer } from './CoverArtOptimizer';
 import { CloudTriggers } from './CloudTriggers';
 import { OwnerCoreConsole } from './OwnerCoreConsole';
@@ -213,6 +216,8 @@ export const VibeVaultStudio: React.FC = () => {
                 { id: 'tracks', label: 'Active Tracks', icon: Radio },
                 { id: 'ai-uploader', label: 'AI Beat Uploader', icon: Sparkles },
                 { id: 'cover-optimizer', label: 'Cover Art Optimizer', icon: ImageIcon },
+                { id: 'transcoder', label: 'Audio Transcoder', icon: Music },
+                { id: 'sound-matcher', label: 'Audio Sound Matcher', icon: Sliders },
                 { id: 'owner-core', label: 'Owner Core Console', icon: Shield },
                 { id: 'contracts', label: 'Licensing Contracts', icon: FileText },
                 { id: 'cloud-triggers', label: 'Cloud Storage Hook', icon: Cpu },
@@ -264,6 +269,7 @@ export const VibeVaultStudio: React.FC = () => {
                 { id: 'sales', label: 'Sales & Finances', icon: DollarSign },
                 { id: 'telemetry', label: 'Stream Telemetry', icon: BarChart3 },
                 { id: 'feature-mapping', label: 'System Mapping', icon: Cpu },
+                { id: 'settings', label: 'Portal Settings', icon: Settings },
               ].map(item => {
                 const isActive = adminSection === item.id;
                 return (
@@ -481,6 +487,14 @@ export const VibeVaultStudio: React.FC = () => {
 
         {adminSection === 'cover-optimizer' && (
           <CoverArtOptimizer />
+        )}
+
+        {adminSection === 'transcoder' && (
+          <AudioTranscoder />
+        )}
+
+        {adminSection === 'sound-matcher' && (
+          <AudioSoundMatcher />
         )}
 
         {adminSection === 'cloud-triggers' && (
@@ -728,7 +742,7 @@ export const VibeVaultStudio: React.FC = () => {
                 {tracks.map((track) => (
                   <div key={track.id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 hover:bg-neutral-900/20">
                     <div className="flex items-center gap-3 w-1/3 min-w-[200px]">
-                      <img src={track.imageUrl} referrerPolicy="no-referrer" alt="" className="w-10 h-10 object-cover rounded border border-neutral-800" />
+                      <img src={track.imageUrl} referrerPolicy="no-referrer" alt="" className="w-10 h-10 object-contain rounded-sm border border-neutral-800 bg-black" />
                       <div className="min-w-0">
                         <div className="font-sans font-bold text-neutral-200 truncate">{track.title}</div>
                         <div className="font-mono text-[9px] text-neutral-500 mt-0.5">by {track.producer} • {track.bpm} BPM • {track.key}</div>
@@ -1183,6 +1197,13 @@ export const VibeVaultStudio: React.FC = () => {
               <TransactionLedger />
             </div>
 
+          </div>
+        )}
+
+        {/* Portal Settings View */}
+        {adminSection === 'settings' && (
+          <div className="animate-fadeIn">
+            <DashboardSettings />
           </div>
         )}
 

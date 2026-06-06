@@ -107,8 +107,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ onOpenLicenseModal }) 
       const height = canvas.height;
       ctx.clearRect(0, 0, width, height);
 
-      const analyser = AudioSynth.getAnalyser();
-      if (!analyser || !isPlaying) {
+      if (!isPlaying) {
         // Draw idle passive ambient wave on the side
         ctx.lineWidth = 1.5;
         ctx.strokeStyle = 'rgba(0, 255, 204, 0.18)'; // transparent neon green
@@ -124,6 +123,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ onOpenLicenseModal }) 
         ctx.stroke();
         return;
       }
+
+      const analyser = AudioSynth.getAnalyser();
+      if (!analyser) return;
 
       // Read live analytical frequency data
       const bufferLength = analyser.frequencyBinCount;
@@ -316,12 +318,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ onOpenLicenseModal }) 
         
         {/* Track Title / Metadata Thumbnail - Left */}
         <div className="flex items-center gap-3 w-full md:w-1/3 min-w-[200px]">
-          <div className="relative overflow-hidden w-11 h-11 rounded-lg border border-neutral-800 flex-shrink-0 bg-neutral-950">
+          <div className="relative overflow-hidden w-11 h-11 rounded-sm border border-neutral-800 flex-shrink-0 bg-black flex items-center justify-center">
             <img 
               src={currentTrack.imageUrl} 
               alt={currentTrack.title} 
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-bg-dark/60 to-transparent pointer-events-none" />
           </div>

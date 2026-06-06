@@ -56,7 +56,7 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ track, onClose }) =>
         {/* Top bar info */}
         <div className="p-5 border-b border-neutral-900 flex justify-between items-center bg-neutral-950">
           <div className="flex items-center gap-3">
-            <img src={track.imageUrl} referrerPolicy="no-referrer" alt="" className="w-10 h-10 object-cover rounded border border-neutral-800 flex-shrink-0" />
+            <img src={track.imageUrl} referrerPolicy="no-referrer" alt="" className="w-10 h-10 object-contain rounded-sm border border-neutral-800 bg-black flex-shrink-0" />
             <div>
               <h2 className="font-sans font-bold text-neutral-100 text-sm tracking-wide uppercase">Select License Class</h2>
               <p className="font-mono text-[10px] text-cyan-400 mt-0.5">TRACK: "{track.title}" • BPM: {track.bpm} • KEY: {track.key}</p>

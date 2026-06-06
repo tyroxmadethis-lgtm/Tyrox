@@ -16,6 +16,7 @@ import { ContactView } from './components/ContactView';
 import { IndustryPortalView } from './components/IndustryPortalView';
 import { MilestonePlaqueModal } from './components/MilestonePlaqueModal';
 import UnifiedArtistPortal from './components/UnifiedArtistPortal';
+import RhythmArcade from './components/RhythmArcade';
 import { Track } from './types';
 import { ShoppingCart, LayoutGrid, Radio, ShieldCheck, User } from 'lucide-react';
 
@@ -29,6 +30,8 @@ function AppContent() {
 
   const [selectedTrackForLicense, setSelectedTrackForLicense] = useState<Track | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [profileImg, setProfileImg] = useState(() => {
     return localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
   });
@@ -268,6 +271,14 @@ function AppContent() {
             RAP Engineer Stems
           </a>
           <a 
+            href="/arcade" 
+            onClick={(e) => { e.preventDefault(); setActiveTab('arcade'); }} 
+            style={{ color: activeTab === 'arcade' ? '#c084fc' : 'white', textDecoration: 'none' }}
+            className="hover:opacity-80 transition"
+          >
+            Rhythm Arcade
+          </a>
+          <a 
             href="/about" 
             onClick={(e) => { e.preventDefault(); setActiveTab('about'); }} 
             style={{ color: activeTab === 'about' ? '#c084fc' : 'white', textDecoration: 'none' }}
@@ -321,27 +332,69 @@ function AppContent() {
             )}
           </button>
 
-          {/* User badge with Instagram style Follow button */}
-          <div className="flex flex-col items-center gap-1.5 pt-1">
-            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-red-500 bg-neutral-900 flex items-center justify-center cursor-pointer shadow-[0_0_8px_rgba(239,68,68,0.4)]" title="tyroxmadethis@gmail.com">
-               <img 
-                src={profileImg} 
-                alt="User profile" 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+          {/* User badge with Instagram style Follow button & profile menu */}
+          {isLoggedIn && (
+            <div className="user-profile-menu flex items-center gap-3 relative">
+              <button 
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="w-9 h-9 rounded-full overflow-hidden border-2 border-purple-500/80 bg-neutral-900 flex items-center justify-center cursor-pointer shadow-[0_0_8px_rgba(168,85,247,0.4)] hover:scale-105 transition"
+                title="tyroxmadethis@gmail.com"
+              >
+                <img 
+                  src={profileImg} 
+                  alt="Profile" 
+                  className="profile-img w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </button>
+
+              <a
+                href="/dashboard"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('studio');
+                  setShowProfileMenu(false);
+                }}
+                className="dashboard-btn text-[10.5px] font-mono font-black uppercase bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded transition duration-150 active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-[0_0_10px_rgba(147,51,234,0.3)] no-underline"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Dashboard
+              </a>
+
+              {showProfileMenu && (
+                <div className="absolute right-0 top-11 w-48 bg-neutral-950 border border-neutral-800 rounded-lg p-2 shadow-2xl z-50 animate-fadeIn">
+                  <div className="pb-1.5 mb-1.5 border-b border-neutral-900 px-2 text-left">
+                    <p className="text-[10px] text-neutral-400 font-mono">Producer Access</p>
+                    <p className="text-xs font-bold text-white truncate">tyroxmadethis@gmail.com</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab('studio');
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full text-left p-2 rounded hover:bg-neutral-900 text-xs font-bold text-white flex items-center gap-2 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-purple-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                    </svg>
+                    Studio Settings
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsFollowing(!isFollowing);
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full text-left p-2 rounded hover:bg-neutral-900 text-xs font-bold text-white flex items-center gap-2 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-cyan-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.002 6.002 0 0 1 11.233-3.007c0 .196-.03.392-.104.577a11.956 11.956 0 0 1-1.684 3.125l-.234-.234Z" />
+                    </svg>
+                    {isFollowing ? 'Unfollow Account' : 'Follow Producer'}
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setIsFollowing(!isFollowing)}
-              className={`px-2 py-0.5 text-[8px] font-sans font-bold uppercase rounded tracking-wider transition-all duration-150 active:scale-95 cursor-pointer ${
-                isFollowing 
-                  ? 'bg-neutral-800 text-neutral-300 hover:bg-neutral-750 border border-neutral-700/50' 
-                  : 'bg-[#0095f6] hover:bg-[#18a0fb] text-white font-extrabold shadow-[0_1px_5px_rgba(0,149,246,0.3)]'
-              }`}
-            >
-              {isFollowing ? 'Following' : 'Follow'}
-            </button>
-          </div>
+          )}
 
         </div>
 
@@ -369,6 +422,9 @@ function AppContent() {
         )}
         {activeTab === 'industry-portal' && (
           <IndustryPortalView />
+        )}
+        {activeTab === 'arcade' && (
+          <RhythmArcade />
         )}
       </main>
 

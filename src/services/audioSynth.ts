@@ -36,16 +36,25 @@ class AudioSynthService {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     
-    this.ctx = new AudioContextClass();
-    this.masterVolume = this.ctx.createGain();
-    this.masterVolume.gain.setValueAtTime(0.4, this.ctx.currentTime); // default to 40% volume
+    try {
+      this.ctx = new AudioContextClass();
+      
+      // Setup nodes if context was created successfully
+      if (this.ctx) {
+        this.masterVolume = this.ctx.createGain();
+        this.masterVolume.gain.setValueAtTime(0.4, this.ctx.currentTime); // default to 40% volume
 
-    this.analyserNode = this.ctx.createAnalyser();
-    this.analyserNode.fftSize = 128;
-    
-    // Connect nodes
-    this.masterVolume.connect(this.analyserNode);
-    this.analyserNode.connect(this.ctx.destination);
+        this.analyserNode = this.ctx.createAnalyser();
+        this.analyserNode.fftSize = 128;
+        
+        // Connect nodes
+        this.masterVolume.connect(this.analyserNode);
+        this.analyserNode.connect(this.ctx.destination);
+      }
+    } catch (e) {
+      console.warn("AudioContext setup blocked or unsupported in this sandboxed environment:", e);
+      this.ctx = null;
+    }
   }
 
   public setCallbacks(

@@ -38,7 +38,7 @@ interface Metadata {
 
 export const UltimateBeatUploader: React.FC = () => {
   const { addTrack, setAdminSection } = useStore();
-  const [step, setStep] = useState(1); // Stepper pages: 1 (Basic Info), 2 (Audio Uploads), 3 (Pricing & Review), 4 (Success Screen)
+  const [step, setStep] = useState(1); // Stepper pages: 1 (Basic Info), 2 (Artwork), 3 (Audio Uploads), 4 (Pricing & Review), 5 (Success Screen)
   
   // Page 1: Metadata Metadata
   const [metadata, setMetadata] = useState<Metadata>({
@@ -73,13 +73,42 @@ export const UltimateBeatUploader: React.FC = () => {
     }
   };
 
-  // Page 2: Audio File Upload Queue
+  // Page 2: Artwork
+  const [artworkFile, setArtworkFile] = useState<File | null>(null);
+  const [artworkPreview, setArtworkPreview] = useState<string | null>(null);
+  const artworkFileRef = useRef<HTMLInputElement>(null);
+
+  const handleArtworkChange = (file: File) => {
+    setArtworkFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setArtworkPreview(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Sync with the files array for step 3 display & triggerUploadProcess logic
+    setFiles((prev) => {
+      const filtered = prev.filter((f) => f.type !== "artwork");
+      return [
+        ...filtered,
+        {
+          file,
+          type: "artwork",
+          progress: 0
+        }
+      ];
+    });
+  };
+
+  // Page 3: Audio File Upload Queue
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [processingAI, setProcessingAI] = useState(false);
   
-  // Page 3: Pricing & Review Parameter
+  // Page 4: Pricing & Review Parameter
   const [flatPrice, setFlatPrice] = useState<string>("29.99");
   const [allowFreeDownload, setAllowFreeDownload] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -153,6 +182,57 @@ export const UltimateBeatUploader: React.FC = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const uploadArtworkToCloudinary = async (artworkFile: File): Promise<string | null> => {
+    try {
+      // 1. Fetch encrypted signature from our Express server endpoint
+      const signResponse = await fetch("/api/cloudinary/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: "tyrox_beats_assets" })
+      });
+
+      if (!signResponse.ok) {
+        const errJson = await signResponse.json().catch(() => ({}));
+        console.warn("Cloudinary signing endpoint offline or misconfigured:", errJson.error || "unknown signature error");
+        return null;
+      }
+
+      const signData = await signResponse.json();
+      if (!signData.success) {
+        console.warn("Cloudinary signing failed:", signData.error);
+        return null;
+      }
+
+      // 2. Build secure FormData payload for direct Cloudinary upload
+      const formData = new FormData();
+      formData.append("file", artworkFile);
+      formData.append("api_key", signData.apiKey);
+      formData.append("timestamp", String(signData.timestamp));
+      formData.append("signature", signData.signature);
+      formData.append("folder", signData.folder);
+      formData.append("transformation", signData.transformation);
+
+      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${signData.cloudName}/image/upload`;
+      const uploadResponse = await fetch(cloudinaryUrl, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!uploadResponse.ok) {
+        const errText = await uploadResponse.text();
+        console.warn("Cloudinary API rejected the secure upload:", errText);
+        return null;
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log("Cloudinary secure upload successful:", uploadResult.secure_url);
+      return uploadResult.secure_url;
+    } catch (error) {
+      console.error("Failed secure Cloudinary upload flow:", error);
+      return null;
+    }
+  };
+
   const triggerUploadProcess = async () => {
     if (files.length === 0) {
       alert("Please configure or upload at least one audio asset in Page 2 to sync.");
@@ -161,9 +241,44 @@ export const UltimateBeatUploader: React.FC = () => {
 
     setUploading(true);
     let finishedCount = 0;
+    let artworkUrl: string | null = null;
 
-    // Simulate Vercel Blob binary stream writing
+    // Check for artwork files to upload securely to Cloudinary first
+    const artworkFileItem = files.find((f) => f.type === "artwork");
+    if (artworkFileItem) {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.type === "artwork" ? { ...f, progress: 20 } : f
+        )
+      );
+      
+      const uploadedUrl = await uploadArtworkToCloudinary(artworkFileItem.file);
+      if (uploadedUrl) {
+        artworkUrl = uploadedUrl;
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.type === "artwork" ? { ...f, progress: 100, url: uploadedUrl } : f
+          )
+        );
+      } else {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.type === "artwork" ? { ...f, progress: 100 } : f
+          )
+        );
+      }
+    }
+
+    // Process other files in parallel/simulated behavior
     files.forEach((fileItem) => {
+      if (fileItem.type === "artwork") {
+        finishedCount++;
+        if (finishedCount === files.length) {
+          handleCompletePublishingFlow(artworkUrl);
+        }
+        return;
+      }
+
       let currentProgress = 0;
       const interval = setInterval(() => {
         currentProgress += Math.floor(Math.random() * 20) + 10;
@@ -173,7 +288,7 @@ export const UltimateBeatUploader: React.FC = () => {
           finishedCount++;
 
           if (finishedCount === files.length) {
-            handleCompletePublishingFlow();
+            handleCompletePublishingFlow(artworkUrl);
           }
         }
 
@@ -186,11 +301,13 @@ export const UltimateBeatUploader: React.FC = () => {
     });
   };
 
-  const handleCompletePublishingFlow = async () => {
+  const handleCompletePublishingFlow = async (artworkUrl: string | null) => {
     const finalPrice = parseFloat(flatPrice) || 29.99;
-    const finalImg = files.find((f) => f.type === "artwork")
+    
+    // Choose actual Cloudinary uploaded URL or fall back to high-quality unsplash/placeholder image
+    const finalImg = artworkUrl || (files.find((f) => f.type === "artwork")
       ? "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop"
-      : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop";
+      : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop");
 
     // Attempt actual database registry creation
     try {
@@ -236,7 +353,7 @@ export const UltimateBeatUploader: React.FC = () => {
 
     setUploading(false);
     setUploadSuccess(true);
-    setStep(4);
+    setStep(5);
   };
 
   // Nav Handlers
@@ -249,11 +366,14 @@ export const UltimateBeatUploader: React.FC = () => {
   };
 
   const handleNextPageFromAudioUpload = () => {
-    if (files.length === 0) {
-      alert("Please upload at least one audio stem or artwork to progress.");
+    const hasAudio = files.some(
+      (f) => f.type === "wav" || f.type === "mp3" || f.type === "stems"
+    );
+    if (!hasAudio) {
+      alert("Please upload at least one audio asset (MP3, WAV or Zip Stems) to progress.");
       return;
     }
-    setStep(3);
+    setStep(4);
   };
 
   return (
@@ -280,8 +400,9 @@ export const UltimateBeatUploader: React.FC = () => {
       <div className="flex items-center justify-between py-3 mb-8 border-b border-neutral-900/40 max-w-2xl mx-auto">
         {[
           { num: 1, label: "1. Info" },
-          { num: 2, label: "2. Audio" },
-          { num: 3, label: "3. Price & Review" }
+          { num: 2, label: "2. Artwork" },
+          { num: 3, label: "3. Audio" },
+          { num: 4, label: "4. Price & Review" }
         ].map((s) => (
           <div
             key={s.num}
@@ -410,15 +531,91 @@ export const UltimateBeatUploader: React.FC = () => {
               onClick={handleNextPageFromBasicInfo}
               className="flex items-center gap-1.5 px-6 py-3 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-sans font-bold text-xs uppercase tracking-wider rounded-xl transition cursor-pointer shadow-lg shadow-purple-950/20"
             >
-              Next: Audio Stems
+              Next: Track Artwork
               <ChevronRight size={14} />
             </button>
           </div>
         </div>
       )}
 
-      {/* PAGE 2: AUDIO FILE UPLOADS */}
+      {/* PAGE 2: ARTWORK UPLOAD (NEW SECTION) */}
       {step === 2 && (
+        <div id="step-artwork-section" className="space-y-6 max-w-3xl mx-auto animate-fadeIn text-neutral-250">
+          <div className="bg-neutral-900/25 border border-neutral-900 rounded-xl p-5 md:p-6 space-y-4">
+            <h3 className="text-xs uppercase font-mono text-purple-400 font-bold tracking-wider mb-2 border-b border-neutral-850 pb-2">
+              PAGE 2: TRACK ARTWORK
+            </h3>
+            <p className="text-xs font-mono text-neutral-400 my-1 leading-relaxed">
+              Upload a high-quality cover image for your beat.
+            </p>
+
+            <div className="flex flex-col items-center">
+              <div 
+                id="artwork-preview-box" 
+                onClick={() => artworkFileRef.current?.click()}
+                className="upload-dropzone border-2 border-dashed border-neutral-850 hover:border-purple-500 bg-neutral-950/60 p-6 rounded-xl text-center cursor-pointer transition flex flex-col items-center justify-center relative overflow-hidden"
+                style={{ width: '300px', height: '300px' }}
+              >
+                {!artworkPreview ? (
+                  <div id="dropzone-prompt" className="space-y-2 select-none">
+                    <ImageIcon className="text-purple-500 w-12 h-12 mx-auto opacity-75" />
+                    <p className="text-xs font-bold text-white uppercase mt-2">
+                      Drag & drop your artwork here, or <span className="text-purple-500 hover:text-purple-400 underline cursor-pointer">browse</span>
+                    </p>
+                    <p className="text-[10px] text-neutral-500 font-mono mt-1">
+                      Supports JPG, PNG (Minimum 500x500px recommended)
+                    </p>
+                  </div>
+                ) : (
+                  <img 
+                    id="artwork-display" 
+                    className="hidden-preview w-full h-full object-contain bg-black" 
+                    src={artworkPreview || ""} 
+                    alt="Artwork Preview" 
+                    style={{ display: 'block' }}
+                  />
+                )}
+              </div>
+
+              <input 
+                type="file" 
+                id="artwork-file-input" 
+                ref={artworkFileRef}
+                accept="image/*" 
+                className="hidden-input hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleArtworkChange(e.target.files[0]);
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="navigation-buttons mt-6 flex justify-between">
+            <button 
+              type="button" 
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-neutral-900 hover:bg-neutral-850 hover:text-white transition active:scale-95 text-xs font-mono uppercase tracking-wider text-neutral-400 rounded-lg cursor-pointer"
+              onClick={() => setStep(1)}
+            >
+              <ChevronLeft size={14} />
+              Back
+            </button>
+            <button 
+              type="button" 
+              className="flex items-center gap-1.5 px-5 py-2.5 bg-purple-600 hover:bg-purple-500 active:scale-95 transition text-white font-sans font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer"
+              onClick={() => setStep(3)}
+            >
+              Next: Audio Files
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PAGE 3: AUDIO FILE UPLOADS */}
+      {step === 3 && (
         <div className="space-y-6 max-w-4xl mx-auto animate-fadeIn">
           {/* DRAG AND DROP CLOUD ZONE */}
           <div
@@ -539,7 +736,7 @@ export const UltimateBeatUploader: React.FC = () => {
           {/* STEPPER NAV CONTROLS */}
           <div className="flex justify-between pt-4 border-t border-neutral-900">
             <button
-              onClick={() => setStep(1)}
+              onClick={() => setStep(2)}
               className="flex items-center gap-1.5 px-4 py-2.5 bg-neutral-900 hover:bg-neutral-850 hover:text-white transition active:scale-95 text-xs font-mono uppercase tracking-wider text-neutral-400 rounded-lg cursor-pointer"
             >
               <ChevronLeft size={14} />
@@ -556,8 +753,8 @@ export const UltimateBeatUploader: React.FC = () => {
         </div>
       )}
 
-      {/* PAGE 3: PRICING & REVIEW */}
-      {step === 3 && (
+      {/* PAGE 4: PRICING & REVIEW */}
+      {step === 4 && (
         <div className="space-y-6 max-w-3xl mx-auto animate-fadeIn">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             
@@ -656,7 +853,7 @@ export const UltimateBeatUploader: React.FC = () => {
           {/* STEPPER NAV CONTROLS */}
           <div className="flex justify-between pt-6 border-t border-neutral-900 mt-6 md:gap-3">
             <button
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               disabled={uploading}
               className="flex items-center gap-1.5 px-4 py-2.5 bg-neutral-900 hover:bg-neutral-850 hover:text-white transition active:scale-95 text-xs font-mono uppercase tracking-wider text-neutral-400 rounded-lg cursor-pointer disabled:opacity-50"
             >
@@ -685,7 +882,7 @@ export const UltimateBeatUploader: React.FC = () => {
       )}
 
       {/* SUCCESS SCREEN */}
-      {step === 4 && uploadSuccess && (
+      {step === 5 && uploadSuccess && (
         <div className="p-8 text-center space-y-5 max-w-lg mx-auto animate-scaleUp">
           <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400 shadow-xl shadow-emerald-950/20">
             <CheckCircle2 size={32} />
@@ -721,6 +918,8 @@ export const UltimateBeatUploader: React.FC = () => {
                 setFlatPrice("29.99");
                 setAllowFreeDownload(false);
                 setUploadSuccess(false);
+                setArtworkFile(null);
+                setArtworkPreview(null);
                 setStep(1);
               }}
               className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition cursor-pointer active:scale-95"

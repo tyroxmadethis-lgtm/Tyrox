@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw, Music } from 'lucide-react';
 import { z } from "zod";
+import { uploadDirectToCloud } from '@/lib/DirectUploader';
 
 export const globalSetupSchema = z.object({
   bio: z.string().max(1000),
@@ -224,45 +225,35 @@ export const AboutView: React.FC = () => {
     window.dispatchEvent(syncEvent);
   };
 
+  const uploadDashboardAssets = async (file: File) => {
+    try {
+      const secureUrl = await uploadDirectToCloud(file);
+      return secureUrl;
+    } catch (error: any) {
+      console.error("Direct Upload Fault:", error.message);
+      alert(`Enterprise Upload Error: Keep image under 4MB and verify cloud API environment keys.`);
+      return null;
+    }
+  };
+
   const uploadMediaAssets = async (avatarFile: File | null, bannerFile: File | null) => {
     try {
       const uploadResults: { avatarUrl: string | null; bannerUrl: string | null } = { avatarUrl: null, bannerUrl: null };
       
-      // Create clean form data payload compatible with Safari and modern browsers
-      const formData = new FormData();
-      
       if (avatarFile) {
-        formData.append("avatar", avatarFile);
+        console.log("Direct-uploading avatar to Cloudinary...");
+        const avatarUrl = await uploadDashboardAssets(avatarFile);
+        if (avatarUrl) {
+          uploadResults.avatarUrl = avatarUrl;
+        }
       }
       if (bannerFile) {
-        formData.append("banner", bannerFile);
+        console.log("Direct-uploading banner to Cloudinary...");
+        const bannerUrl = await uploadDashboardAssets(bannerFile);
+        if (bannerUrl) {
+          uploadResults.bannerUrl = bannerUrl;
+        }
       }
-
-      const origin = window.location.origin;
-      const absoluteUrl = (!origin || origin === 'null') 
-        ? '/api/upload' 
-        : `${origin}/api/upload`;
-
-      // Send assets to our file server backend with clean accept headers
-      const response = await fetch(absoluteUrl, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          // Note: Content-Type is intentionally omitted so the browser sets its own boundary
-        },
-        body: formDataByBrowser(formData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || "Storage bucket rejected the files on backend processing.");
-      }
-
-      // Parse the clean string URLs returned by the server
-      const data = await response.json();
-      
-      uploadResults.avatarUrl = data.avatarUrl || null;
-      uploadResults.bannerUrl = data.bannerUrl || null;
 
       return uploadResults;
 

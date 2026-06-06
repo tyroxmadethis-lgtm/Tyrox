@@ -41,10 +41,35 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     window.open(destination, '_blank', 'width=600,height=400');
   };
 
+  // Expose playUploadedBeat globally to support automatic test drivers and pipeline executors
+  React.useEffect(() => {
+    (window as any).playUploadedBeat = (trackData: any) => {
+      const audioPlayer = document.getElementById('global-stream-player') as HTMLAudioElement;
+      if (audioPlayer) {
+        if (trackData && trackData.wavPath) {
+          audioPlayer.src = trackData.wavPath;
+          audioPlayer.load();
+          audioPlayer.play()
+            .then(() => {
+              console.log("Beat playback started successfully.");
+              setIsPlaying(true);
+            })
+            .catch(err => {
+              console.error("Playback interrupted or file missing:", err);
+              alert("Audio file could not be played. Check server processing logs.");
+            });
+        } else {
+          console.error("Invalid track object. Audio target missing.");
+        }
+      }
+    };
+  }, []);
+
   return (
     <AudioContext.Provider value={{ currentTrack, isPlaying, loadAndPlayTrack, togglePlaybackState, triggerSocialShare }}>
       {children}
-      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} className="hidden" />
+      <audio id="global-stream-player" ref={audioRef} onEnded={() => setIsPlaying(false)} className="hidden" />
     </AudioContext.Provider>
   );
+
 }
