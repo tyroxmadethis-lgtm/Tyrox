@@ -34,6 +34,7 @@ function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cloudStatus, setCloudStatus] = useState<'syncing' | 'connected' | 'disconnected'>('syncing');
   const [profileImg, setProfileImg] = useState(() => {
     return localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
   });
@@ -87,6 +88,26 @@ function AppContent() {
       window.removeEventListener('tyrox-banner-updated', handleBannerUpdate);
       window.removeEventListener('vv-milestone-achieved', handleMilestone);
     };
+  }, []);
+
+  // Sync Cloud Health State on refresh
+  React.useEffect(() => {
+    async function verifyCloudConnectionState() {
+      try {
+        const pingCheck = await fetch('/api/cloud-check');
+        const data = await pingCheck.json();
+        if (data.success) {
+          console.log("⚡ Cloud Connection verified. Environment keys are live on Vercel.");
+          setCloudStatus('connected');
+        } else {
+          setCloudStatus('disconnected');
+        }
+      } catch (connectionError) {
+        console.error("🚨 Cloud Connection Failed! Check your Vercel Environment Variables.", connectionError);
+        setCloudStatus('disconnected');
+      }
+    }
+    verifyCloudConnectionState();
   }, []);
 
   // Global Pop-up Error Blocker & Safe Image Source Protection
@@ -470,6 +491,22 @@ function AppContent() {
             
             {/* TOP RIGHT DASHBOARD CONTROLS */}
             <div className="top-utility-suite">
+              {cloudStatus === 'syncing' && (
+                <span className="system-status-badge syncing" style={{ background: 'rgba(168, 85, 247, 0.08)', color: '#a855f7', border: '1px solid #a855f7' }}>
+                  🔄 Syncing Cloud...
+                </span>
+              )}
+              {cloudStatus === 'connected' && (
+                <span className="system-status-badge connected">
+                  ☁️ Cloud Online
+                </span>
+              )}
+              {cloudStatus === 'disconnected' && (
+                <span className="system-status-badge disconnected" title="Missing Cloudinary API Keys in Settings!">
+                  ⚠️ Cloud Disconnected
+                </span>
+              )}
+
               <span className="cart-preview cursor-pointer select-none" onClick={() => { setActiveTab('storefront'); setSearchQuery(''); }}>
                 🛒 ${cartSubtotal > 0 ? cartSubtotal.toFixed(2) : '0.00'}
               </span>

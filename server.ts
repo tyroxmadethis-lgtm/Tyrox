@@ -286,6 +286,26 @@ async function startServer() {
     }
   });
 
+  // API Router - Cloud Credentials Health Check
+  app.get("/api/cloud-check", (req, res) => {
+    const cloudinarySecret = process.env.CLOUDINARY_API_SECRET;
+    const cloudinaryApiKey = process.env.CLOUDINARY_API_KEY;
+    const cloudinaryCloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+    const isConfigured = !!(cloudinarySecret && cloudinaryApiKey && cloudinaryCloudName);
+    
+    return res.json({
+      success: isConfigured,
+      status: isConfigured ? "online" : "disconnected",
+      provider: "Cloudinary",
+      config: {
+        has_cloudinary: isConfigured,
+        has_s3: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
+        has_blob: !!process.env.BLOB_READ_WRITE_TOKEN
+      }
+    });
+  });
+
   // API Router - Secure Cloudinary Direct Uplink Signing Endpoint (Aliases to previous route)
   app.post("/api/upload/sign", async (req, res) => {
     try {
