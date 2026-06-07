@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Track, LicenseOption } from '../types';
 import { 
@@ -19,9 +19,15 @@ import BeatCatalogGrid from './BeatCatalogGrid';
 
 interface StorefrontProps {
   onOpenLicenseModal: (track: Track) => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
 }
 
-export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) => {
+export const Storefront: React.FC<StorefrontProps> = ({ 
+  onOpenLicenseModal,
+  searchQuery: externalSearchQuery,
+  setSearchQuery: setExternalSearchQuery
+}) => {
   const {
     tracks,
     cart,
@@ -35,13 +41,16 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
     currentTrack,
     isPlaying,
     playTrack,
+    togglePlay,
     setActiveTab,
     updateTrack,
     payoutEmail,
     payoutMethod,
   } = useStore();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : localSearchQuery;
+  const setSearchQuery = setExternalSearchQuery !== undefined ? setExternalSearchQuery : setLocalSearchQuery;
   const [selectedTag, setSelectedTag] = useState('All');
   const [email, setEmail] = useState('');
   const [couponCode, setCouponCode] = useState('');
@@ -62,8 +71,20 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
   const [downloadEmail, setDownloadEmail] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
+  const [activePlatform, setActivePlatform] = useState<'native' | 'beatstars' | 'airbit'>('native');
+  const [beatstarsUrl, setBeatstarsUrl] = useState(() => {
+    return localStorage.getItem('tyrox_beatstars_url') || 'https://player.beatstars.com/?storeId=97136';
+  });
+  const [airbitUrl, setAirbitUrl] = useState(() => {
+    return localStorage.getItem('tyrox_airbit_url') || 'https://airbit.com/widgets/html5?uid=12354&config=301389';
+  });
+
   const [bannerImg, setBannerImg] = useState(() => {
     return localStorage.getItem('tyrox_banner_img') || "/banner.jpg";
+  });
+
+  const [profileImg, setProfileImg] = useState(() => {
+    return localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
   });
 
   useEffect(() => {
@@ -73,11 +94,83 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
         setBannerImg(customEvent.detail);
       }
     };
+    const handleProfileUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setProfileImg(customEvent.detail);
+      }
+    };
     window.addEventListener('tyrox-banner-updated', handleBannerUpdate);
+    window.addEventListener('tyrox-profile-updated', handleProfileUpdate);
     return () => {
       window.removeEventListener('tyrox-banner-updated', handleBannerUpdate);
+      window.removeEventListener('tyrox-profile-updated', handleProfileUpdate);
     };
   }, []);
+
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        localStorage.setItem('tyrox_banner_img', dataUrl);
+        setBannerImg(dataUrl);
+        window.dispatchEvent(new CustomEvent('tyrox-banner-updated', { detail: dataUrl }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleProfileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        localStorage.setItem('tyrox_profile_img', dataUrl);
+        setProfileImg(dataUrl);
+        window.dispatchEvent(new CustomEvent('tyrox-profile-updated', { detail: dataUrl }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Trendiest Beats Mouse/Touch Drag Slider Coordinates
+  const trendiestSliderRef = useRef<HTMLDivElement | null>(null);
+  const [isSliderDown, setIsSliderDown] = useState(false);
+  const [sliderStartX, setSliderStartX] = useState(0);
+  const [sliderScrollLeft, setSliderScrollLeft] = useState(0);
+
+  const handleSliderMouseDown = (e: React.MouseEvent) => {
+    const slider = trendiestSliderRef.current;
+    if (!slider) return;
+    setIsSliderDown(true);
+    setSliderStartX(e.pageX - slider.offsetLeft);
+    setSliderScrollLeft(slider.scrollLeft);
+  };
+
+  const handleSliderMouseLeave = () => {
+    setIsSliderDown(false);
+  };
+
+  const handleSliderMouseUp = () => {
+    setIsSliderDown(false);
+  };
+
+  const handleSliderMouseMove = (e: React.MouseEvent) => {
+    const slider = trendiestSliderRef.current;
+    if (!slider || !isSliderDown) return;
+    e.preventDefault();
+    const x = e.pageX - slider.offsetLeft;
+    const walk = (x - sliderStartX) * 2; // scroll speed multiplier
+    slider.scrollLeft = sliderScrollLeft - walk;
+  };
+
+  // Dynamically derive trendiest beats from the user's actual uploaded/streamed tracks
+  const trendiestBeatsList = tracks
+    .filter(t => (t.streams ?? t.plays ?? 0) > 0)
+    .sort((a, b) => ((b.streams ?? b.plays ?? 0) - (a.streams ?? a.plays ?? 0)));
 
   const handleFreeDownloadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -341,20 +434,359 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
   return (
     <div id="store-main-viewport" className="pb-32 px-4 md:px-8 max-w-7xl mx-auto pt-6 flex flex-col gap-6 md:gap-8 min-h-screen bg-bg-dark text-neutral-100">
       
-      {/* Premium Epic Visual Storefront Banner with No Infrastructure Clutter */}
-      <div 
-        className="relative rounded-2xl overflow-hidden h-44 sm:h-60 md:h-72 lg:h-96 w-full shadow-2xl border border-neutral-900/80 flex items-end"
-        style={{
-          backgroundImage: `url('${bannerImg}')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        {/* Deep ambient vignette borders to integrate with page styling seamlessly */}
-        <div className="absolute inset-0 bg-gradient-to-t from-bg-dark via-transparent to-black/25 pointer-events-none" />
-        <div className="absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-bg-dark/15 to-transparent pointer-events-none" />
-        <div className="absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-bg-dark/15 to-transparent pointer-events-none" />
-      </div>
+      {/* Profile Header Section with Banner & Avatar Interactive Uploads */}
+      <header className="profile-container relative rounded-2xl overflow-hidden shadow-2xl border border-neutral-950 bg-neutral-950">
+        
+        {/* Banner Upload Zone */}
+        <div 
+          className="banner-upload relative h-36 sm:h-52 md:h-64 lg:h-80 w-full cursor-pointer group flex items-center justify-center overflow-hidden transition-all duration-300"
+          onClick={() => document.getElementById('bannerInput')?.click()}
+          style={{
+            backgroundImage: `url('${bannerImg}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          {/* Deep ambient vignette borders to integrate with page styling seamlessly */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/35 group-hover:bg-black/55 transition-all duration-300 pointer-events-none" />
+          <span className="upload-text absolute text-[11px] sm:text-xs font-mono tracking-widest text-[#a855f7] bg-black/80 px-3 py-1.5 rounded border border-[#a855f7]/30 uppercase font-bold opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 select-none">
+            Click to Upload Banner
+          </span>
+          <input 
+            type="file" 
+            id="bannerInput" 
+            accept="image/*" 
+            onChange={handleBannerUpload}
+            onClick={(e) => e.stopPropagation()}
+            hidden 
+          />
+        </div>
+
+        {/* Profile Picture Upload Zone + Overlay Title */}
+        <div className="relative px-6 md:px-10 pb-6 pt-12 sm:pt-14 md:pt-16 flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 -mt-16 sm:-mt-20 md:-mt-24 z-10">
+          <div className="avatar-container relative">
+            <div 
+              className="avatar-upload w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full overflow-hidden border-[4px] border-bg-dark bg-neutral-950 flex items-center justify-center cursor-pointer group shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-105 hover:border-[#a855f7] transition duration-300 relative"
+              onClick={() => document.getElementById('avatarInput')?.click()}
+            >
+              <img 
+                src={profileImg} 
+                alt="PFP" 
+                className="w-full h-full object-cover transition duration-300 group-hover:brightness-50"
+                referrerPolicy="no-referrer"
+              />
+              <span className="upload-text absolute inset-0 flex items-center justify-center text-[10px] font-mono tracking-wider text-purple-400 font-bold opacity-0 group-hover:opacity-100 transition duration-300 select-none">
+                PFP
+              </span>
+              <input 
+                type="file" 
+                id="avatarInput" 
+                accept="image/*" 
+                onChange={handleProfileUpload}
+                onClick={(e) => e.stopPropagation()}
+                hidden 
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white uppercase font-sans">
+              Tyrox Made This
+            </h1>
+            <p className="text-[11px] sm:text-xs font-mono text-purple-400 uppercase tracking-widest mt-1 font-bold">
+              Madison, Wisconsin • Elite Multi-Platinum Record Producer
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {/* STORE SELECTION SWITCHES (Toggle between platforms easily) */}
+      <section className="platform-navigation">
+        <button 
+          onClick={() => setActivePlatform('native')}
+          className={`nav-toggle-btn ${activePlatform === 'native' ? 'active-toggle animate-pulse' : ''}`}
+        >
+          ☄️ TYROX Native Store
+        </button>
+        <button 
+          onClick={() => setActivePlatform('beatstars')}
+          className={`nav-toggle-btn ${activePlatform === 'beatstars' ? 'active-toggle animate-pulse' : ''}`}
+        >
+          🔥 BeatStars Player
+        </button>
+        <button 
+          onClick={() => setActivePlatform('airbit')}
+          className={`nav-toggle-btn ${activePlatform === 'airbit' ? 'active-toggle animate-pulse' : ''}`}
+        >
+          💼 Airbit Player
+        </button>
+      </section>
+
+      {activePlatform === 'beatstars' && (
+        <div id="beatstars-frame-wrapper" className="storefront-viewport mb-12 animate-fadeIn text-left">
+          <div className="flex items-center justify-between mb-4 bg-neutral-950/60 border border-neutral-900 rounded-xl p-4">
+            <div>
+              <h3 className="text-sm font-sans font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="text-red-500 font-bold">🔥</span> BeatStars Blaze Integration
+              </h3>
+              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest mt-0.5">
+                Powered by official HTML5 Blaze Player framework configuration
+              </p>
+            </div>
+            <button 
+              onClick={() => {
+                const newUrl = prompt("Enter your custom BeatStars Player/Store URL:", beatstarsUrl);
+                if (newUrl) {
+                  localStorage.setItem('tyrox_beatstars_url', newUrl);
+                  setBeatstarsUrl(newUrl);
+                }
+              }}
+              className="px-3 py-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-[9.5px] font-mono text-neutral-400 rounded uppercase cursor-pointer"
+            >
+              ⚙️ Config URL
+            </button>
+          </div>
+          <iframe 
+            src={beatstarsUrl} 
+            className="embedded-marketplace-audio-core w-full rounded-2xl"
+            style={{ border: 0, height: '780px' }}
+            allow="autoplay; encrypted-media"
+          />
+        </div>
+      )}
+
+      {activePlatform === 'airbit' && (
+        <div id="airbit-frame-wrapper" className="storefront-viewport mb-12 animate-fadeIn text-left">
+          <div className="flex items-center justify-between mb-4 bg-neutral-950/60 border border-neutral-900 rounded-xl p-4">
+            <div>
+              <h3 className="text-sm font-sans font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="text-emerald-550 font-bold">💼</span> Airbit Infinity Integration
+              </h3>
+              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest mt-0.5">
+                Official responsive Airbit widgets layout
+              </p>
+            </div>
+            <button 
+              onClick={() => {
+                const newUrl = prompt("Enter your custom Airbit Widgets HTML5 URL:", airbitUrl);
+                if (newUrl) {
+                  localStorage.setItem('tyrox_airbit_url', newUrl);
+                  setAirbitUrl(newUrl);
+                }
+              }}
+              className="px-3 py-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-[9.5px] font-mono text-neutral-400 rounded uppercase cursor-pointer"
+            >
+              ⚙️ Config URL
+            </button>
+          </div>
+          <iframe 
+            src={airbitUrl} 
+            className="embedded-marketplace-audio-core w-full rounded-2xl"
+            style={{ border: 0, height: '780px' }}
+            allow="autoplay; encrypted-media"
+          />
+        </div>
+      )}
+
+      {activePlatform === 'native' && (
+        <>
+        {/* 3. IMMERSIVE BRAND WALLPAPER BANNER */}
+        <section 
+          className="cinematic-hero-section shadow-2xl relative border border-neutral-900/40 my-1 select-none" 
+          style={{ 
+            backgroundImage: `url('${bannerImg}')`, 
+            backgroundSize: 'cover', 
+            backgroundPosition: 'center' 
+          }}
+        >
+          <div className="hero-tint-overlay" />
+          <div className="hero-content-alignment-box text-center">
+            <h1 className="hero-headline font-black tracking-tight text-white uppercase text-2xl sm:text-3xl md:text-5xl font-sans drop-shadow-lg leading-tight">
+              YOUR FIRST HIT STARTS HERE
+            </h1>
+            
+            <div className="hero-search-hub max-w-lg mx-auto shadow-2xl transition duration-300 hover:scale-[1.01] hover:shadow-purple-500/10 border border-neutral-200/10 mb-6 bg-white/95">
+              <span className="text-neutral-500 font-bold select-none text-base">🔍</span>
+              <input 
+                type="text" 
+                placeholder="Search beats by genre, instrument, mood..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="font-sans font-medium text-neutral-900 placeholder-neutral-500 bg-transparent outline-none w-full ml-2 text-sm"
+              />
+              <button 
+                type="button" 
+                onClick={() => {
+                  const sect = document.getElementById('catalogList');
+                  if (sect) sect.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="hero-search-execution-btn font-sans hover:bg-neutral-900 select-none transition"
+              >
+                Search
+              </button>
+            </div>
+
+            {/* DYNAMIC TICKER PROMOTIONS */}
+            {tracks.length > 0 && (
+              <div 
+                className="trending-ticker-anchor hover:scale-[1.03] transition relative" 
+                onClick={() => playTrack(tracks[0])}
+                title={`Click to preview: ${tracks[0].title}`}
+              >
+                <span className="ticker-badge text-[#a855f7] uppercase font-mono tracking-widest font-extrabold select-none">🔥 TRENDING:</span>
+                <span id="tickerTrackTitle" className="ticker-track-text text-neutral-100 font-bold uppercase truncate">{tracks[0].title}</span>
+                <span className="ticker-play-indicator text-[11px] font-mono text-purple-400 font-bold uppercase tracking-widest pl-2">▶ Click to Preview</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* 4. CURATED MIXES DASHBOARD */}
+        <section className="curated-mixes-dashboard my-4 border-b border-neutral-900/40 pb-6">
+          <h2 className="section-title-label font-extrabold font-sans text-neutral-100 uppercase select-none tracking-tight">
+            Your mixes
+          </h2>
+          <div className="mixes-grid-canvas">
+              
+              {/* Mix Card 1: Composite artwork */}
+              <div 
+                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
+                onClick={() => {
+                  setSearchQuery('Trap');
+                  const sect = document.getElementById('catalogList');
+                  if (sect) sect.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                  <div className="composite-artwork-frame quad-image-grid aspect-square w-full select-none gap-0.5">
+                      <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&q=80" alt="Art 1" referrerPolicy="no-referrer" />
+                      <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=200&q=80" alt="Art 2" referrerPolicy="no-referrer" />
+                      <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&q=80" alt="Art 3" referrerPolicy="no-referrer" />
+                      <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&q=80" alt="Art 4" referrerPolicy="no-referrer" />
+                  </div>
+                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Ultimate Chill Mix</span>
+              </div>
+
+              {/* Mix Card 2: Quad Composite artwork */}
+              <div 
+                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
+                onClick={() => {
+                  setSearchQuery('Drill');
+                  const sect = document.getElementById('catalogList');
+                  if (sect) sect.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                  <div className="composite-artwork-frame quad-image-grid aspect-square w-full select-none gap-0.5">
+                      <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&q=80" alt="Art 1" referrerPolicy="no-referrer" />
+                      <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&q=80" alt="Art 2" referrerPolicy="no-referrer" />
+                      <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&q=80" alt="Art 3" referrerPolicy="no-referrer" />
+                      <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=200&q=80" alt="Art 4" referrerPolicy="no-referrer" />
+                  </div>
+                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Aggressive Trap Fuel</span>
+              </div>
+
+              {/* Mix Card 3: Single artwork cover */}
+              <div 
+                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
+                onClick={() => {
+                  setSearchQuery('Sad');
+                  const sect = document.getElementById('catalogList');
+                  if (sect) sect.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                  <div className="composite-artwork-frame single-image-cover aspect-square w-full select-none">
+                      <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&q=80" className="w-full h-full object-cover" alt="Single Cover" referrerPolicy="no-referrer" />
+                  </div>
+                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Late Night Drift Sessions</span>
+              </div>
+
+              {/* Mix Card 4: Single artwork cover */}
+              <div 
+                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
+                onClick={() => {
+                  setSearchQuery('Vibe');
+                  const lgSect = document.getElementById('catalogList');
+                  if (lgSect) lgSect.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                  <div className="composite-artwork-frame single-image-cover aspect-square w-full select-none">
+                      <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&q=80" className="w-full h-full object-cover" alt="Single Cover" referrerPolicy="no-referrer" />
+                  </div>
+                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Master Stems Vault</span>
+              </div>
+
+          </div>
+        </section>
+
+        {/* Trendiest Beats Sliding Panel Component */}
+      <section id="trendiest-section" className="collection-wrapper border-b border-neutral-900/60 pb-6 my-2">
+        <div className="collection-header flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 className="text-base font-extrabold font-sans tracking-tight text-white uppercase select-none flex items-center gap-2">
+              <span className="text-[#a855f7]">🔥</span> Trendiest Beats
+            </h2>
+            <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest mt-0.5">
+              Swipe or drag to explore the hottest tracks right now
+            </p>
+          </div>
+          <div className="hidden sm:flex items-center gap-1 text-[9px] font-mono text-neutral-400 bg-neutral-950 px-2.5 py-1 rounded border border-neutral-900">
+            <span>🖱️ drag to scroll</span>
+          </div>
+        </div>
+
+        <div 
+          id="trendiestSlider" 
+          ref={trendiestSliderRef}
+          onMouseDown={handleSliderMouseDown}
+          onMouseLeave={handleSliderMouseLeave}
+          onMouseUp={handleSliderMouseUp}
+          onMouseMove={handleSliderMouseMove}
+          className="slider-container no-scrollbar flex overflow-x-auto gap-5"
+        >
+          {trendiestBeatsList.length === 0 ? (
+            <div className="w-full text-center py-6 px-4 rounded-xl border border-dashed border-neutral-900 bg-neutral-950/20 my-1 select-none">
+              <span className="text-purple-500 text-lg block mb-1">⚡</span>
+              <p className="text-[10px] font-sans font-extrabold text-neutral-400 uppercase tracking-widest">No plays accumulated yet</p>
+              <p className="text-[9.5px] font-mono text-neutral-600 uppercase tracking-wider mt-1">Play or stream your uploaded beats to send them directly to the trending carousel</p>
+            </div>
+          ) : (
+            trendiestBeatsList.map((beat) => {
+              const isSelPlay = currentTrack?.id === beat.id && isPlaying;
+              return (
+                <div 
+                  key={beat.id}
+                  onClick={() => playTrack(beat as any)}
+                  className="drag-beat-card group cursor-pointer"
+                >
+                  <div className="artwork-wrapper">
+                    <img 
+                      src={beat.imageUrl} 
+                      alt={beat.title} 
+                      draggable={false}
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="play-overlay bg-black/60">
+                      <button className="p-3 bg-purple-600 rounded-full text-white transform scale-90 group-hover:scale-100 transition duration-300">
+                        {isSelPlay ? (
+                          <Pause size={18} fill="currentColor" />
+                        ) : (
+                          <Play size={18} fill="currentColor" className="ml-0.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <h3 className="font-sans font-bold text-xs text-neutral-100 truncate mt-1">{beat.title}</h3>
+                  <p className="font-mono text-[9.5px] text-neutral-500 truncate mt-0.5">{beat.producer}</p>
+                  
+                  <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-neutral-900">
+                    <span className="font-mono text-[10.5px] font-bold text-purple-400">${beat.price}</span>
+                    <span className="font-mono text-[9px] text-neutral-500 bg-neutral-950 px-2 py-0.5 rounded border border-neutral-900/60">{beat.bpm} BPM</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
 
       {/* Sleek Minimalist Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-900/40 pb-5">
@@ -374,6 +806,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
         >
           <input
             type="text"
+            id="storefrontSearch"
             placeholder="Search beats by name, genre, BPM, or key..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -502,195 +935,82 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
                 )}
               </div>
             ) : (
-              /* Grid Layout simulating professional BeatStars multi-column table */
               <div className="flex flex-col gap-1.5">
+                {/* Grid Layout simulating professional BeatStars multi-column table */}
                 
                  {/* Column Table Headers */}
-                 <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 text-[10px] font-mono text-neutral-500 uppercase tracking-widest border-b border-neutral-900">
-                   <div className="col-span-6">TITLE</div>
-                   <div className="col-span-2 text-center">TIME</div>
-                   <div className="col-span-1 text-center">BPM</div>
-                   <div className="col-span-1">TAGS</div>
-                   <div className="col-span-2 text-right"></div>
+                 <div className="catalog-header-row hidden md:grid">
+                   <div className="col-lbl"></div>
+                   <div className="col-lbl">TITLE</div>
+                   <div className="col-lbl">TIME</div>
+                   <div className="col-lbl">BPM</div>
+                   <div className="col-lbl">TAGS</div>
+                   <div className="col-lbl text-right">BUY LICENSING</div>
                  </div>
  
-                 {filteredTracks.map((track, trackIdx) => {
-                   const isSelectedAndPlaying = currentTrack?.id === track.id && isPlaying;
-                   const isLiked = likedTrackIds.includes(track.id);
-                   const isQuickMenuOpen = activeQuickPriceTrackId === track.id;
+                 <div className="catalog-grid" id="catalogList">
+                   {filteredTracks.map((track, trackIdx) => {
+                     const isSelectedAndPlaying = currentTrack?.id === track.id && isPlaying;
  
-                   return (
-                     <div
-                       key={track.id}
-                       id={`track-card-${track.id}`}
-                       className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-3 rounded-xl border transition-all duration-200 ${
-                         currentTrack?.id === track.id
-                           ? 'bg-[#10111a] border-purple-500/35'
-                           : 'bg-transparent border-transparent hover:bg-[#10111a]/40'
-                       }`}
-                     >
-                       {/* Art & Title Column – col-span-6 */}
-                       <div className="col-span-6 flex items-center gap-3.5 min-w-0">
-                         {/* Play Action button overlay over Artwork */}
-                         <div 
+                     return (
+                       <div
+                         key={track.id}
+                         id={`track-card-${track.id}`}
+                         data-audio-stream={track.audioUrl}
+                         data-track-name={track.title}
+                         data-track-id={track.id}
+                         className={`track-row-item ${
+                           currentTrack?.id === track.id ? 'active-preview active-highlight' : ''
+                         }`}
+                       >
+                         {/* Play trigger button */}
+                         <button 
+                           className="row-play-trigger text-white hover:text-[#a855f7]"
                            onClick={() => playTrack(track)}
-                           className="relative group w-11 h-11 rounded-sm overflow-hidden flex-shrink-0 border border-neutral-850 shadow-md cursor-pointer bg-black flex items-center justify-center"
+                           title="Stream beat preview"
                          >
-                           <img 
-                             src={track.imageUrl} 
-                             alt={track.title} 
-                             referrerPolicy="no-referrer"
-                             className="w-full h-full object-contain group-hover:scale-105 duration-300"
-                           />
-                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-150">
-                             {isSelectedAndPlaying ? (
-                               <Pause size={12} className="text-white" fill="currentColor" />
-                             ) : (
-                               <Play size={12} className="text-white ml-0.5" fill="currentColor" />
-                             )}
-                           </div>
-                           {isSelectedAndPlaying && (
-                             <div className="absolute inset-x-0 bottom-0 bg-neutral-950/60 flex items-center justify-center gap-0.5 py-0.5">
-                               <span className="w-0.5 h-2 bg-purple-400 rounded animate-bounce-1" />
-                               <span className="w-0.5 h-1.5 bg-purple-400 rounded animate-bounce-2" />
-                               <span className="w-0.5 h-2.5 bg-purple-400 rounded animate-bounce-3" />
-                             </div>
+                           {isSelectedAndPlaying ? (
+                             <Pause size={15} fill="currentColor" />
+                           ) : (
+                             <Play size={15} fill="currentColor" className="ml-0.5" />
                            )}
-                         </div>
- 
-                         {/* Title block with producer */}
-                          <div className="min-w-0 space-y-1">
-                            <h3 
-                              onClick={() => playTrack(track)}
-                              className="font-sans font-bold text-xs text-neutral-100 hover:text-purple-400 transition truncate cursor-pointer uppercase tracking-tight flex items-center gap-1.5 flex-wrap"
-                            >
-                              <span>{track.title}</span>
-                              {track.plaque_awarded && (
-                                <span className="inline-flex items-center gap-0.5 bg-yellow-400/10 text-yellow-500 border border-yellow-400/20 text-[7.5px] font-sans font-black px-1.5 py-0.2 rounded uppercase tracking-wider animate-pulse ml-1" title="Officially Certified Platinum">
-                                  🏆 PLATINUM
-                                </span>
-                              )}
-                            </h3>
-                            <div className="flex items-center gap-2 text-[10px] font-mono text-neutral-400">
-                              <span>by {track.producer}</span>
-                              <span className="text-neutral-700">•</span>
-                              <span className="text-purple-400 font-bold">
-                                {(track.streams !== undefined ? track.streams : track.plays).toLocaleString()} streams
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-{/* Duration Time – col-span-2 */}
-                       <div className="hidden md:block col-span-2 text-center font-mono text-[11px] text-neutral-400">
-                         {track.duration}
-                       </div>
- 
-                       {/* Tempo BPM – col-span-1 */}
-                       <div className="hidden md:block col-span-1 text-center font-mono text-[11px] text-neutral-400">
-                         {track.bpm}
-                       </div>
- 
-                       {/* Tags List – col-span-1 */}
-                       <div className="hidden md:flex col-span-1 items-center gap-1.5 flex-wrap">
-                         {track.tags.map(tag => (
-                           <span 
-                             key={tag} 
-                             onClick={() => setSelectedTag(tag)}
-                             className="tag yt-style-tag font-sans text-[9px] uppercase whitespace-nowrap cursor-pointer hover:opacity-95"
-                              style={{ padding: '3px 9px', fontSize: '9px', margin: '1px' }}
-                           >
-                             {tag}
-                           </span>
-                         ))}
-                       </div>
- 
-                       {/* Actions (Share, Price Button) – col-span-2 */}
-                       <div className="col-span-2 flex items-center justify-end gap-2 relative">
-                         
-                         {track.allowFreeDownload && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDownloadTrack(track);
-                              }}
-                              className="h-8 px-2.5 bg-[#0e0f15] hover:bg-neutral-900 text-purple-450 hover:text-purple-300 border border-purple-500/20 hover:border-purple-500/40 rounded text-[10px] font-mono flex items-center gap-1 cursor-pointer uppercase transition shrink-0"
-                              title="Free tag download"
-                            >
-                              <Download size={11} />
-                              <span>Free</span>
-                            </button>
-                          )}
-
-                          {/* Share square button styled exactly like screenshot */}
-                         <button
-                           onClick={() => {
-                             navigator.clipboard.writeText(window.location.href);
-                             alert('Copied link to clipboard!');
-                           }}
-                           className="w-8 h-8 rounded bg-purple-900/40 text-purple-400 hover:text-white hover:bg-purple-800 transition flex items-center justify-center cursor-pointer"
-                           title="Share track"
-                         >
-                           <Share2 size={13} fill="none" />
                          </button>
  
-                         {/* White Cart Price Button */}
-                         <div className="relative">
-                           <button
-                             onClick={() => handleQuickAdd(track, 'mp3')}
-                             className="h-8 px-3 md:px-4 bg-white text-black hover:bg-neutral-150 font-sans font-extrabold text-[11px] rounded transition active:scale-95 flex items-center gap-1.5 cursor-pointer uppercase tracking-tight"
-                           >
-                             <ShoppingBag size={11.5} />
-                             <span>+ ${(track.price !== undefined ? track.price : track.prices?.mp3 || 29.99).toFixed(2)}</span>
-                           </button>
- 
-                           {/* Quick Add Menu Dropdown Popover */}
-                           {isQuickMenuOpen && (
-                             <div className="absolute right-0 mt-2 w-56 bg-[#161720] border border-neutral-800/80 rounded-xl shadow-2xl z-30 p-2 space-y-1 animate-slideIn">
-                               <div className="text-[8.5px] font-mono text-neutral-500 uppercase px-2 py-1 tracking-wider border-b border-neutral-900">Choose license tier</div>
-                               
-                               <button
-                                 onClick={() => handleQuickAdd(track, 'mp3')}
-                                 className="w-full text-left px-2 py-1.5 hover:bg-neutral-900/80 rounded-md transition text-xs flex justify-between items-center cursor-pointer"
-                               >
-                                 <div className="min-w-0">
-                                   <p className="font-sans font-bold text-neutral-200">MP3 Lease</p>
-                                   <p className="font-mono text-[8.5px] text-neutral-500">320kbps Standard</p>
-                                 </div>
-                                 <span className="font-mono text-purple-400 font-bold">${track.prices.mp3.toFixed(2)}</span>
-                               </button>
- 
-                               <button
-                                 onClick={() => handleQuickAdd(track, 'wav')}
-                                 className="w-full text-left px-2 py-1.5 hover:bg-neutral-900/80 rounded-md transition text-xs flex justify-between items-center cursor-pointer"
-                               >
-                                 <div className="min-w-0">
-                                   <p className="font-sans font-bold text-neutral-200">WAV Lease</p>
-                                   <p className="font-mono text-[8.5px] text-neutral-500">24-Bit Uncompressed</p>
-                                 </div>
-                                 <span className="font-mono text-purple-400 font-bold">${track.prices.wav.toFixed(2)}</span>
-                               </button>
- 
-                               <div className="border-t border-neutral-900 my-1"></div>
- 
-                               <button
-                                 onClick={() => {
-                                   setActiveQuickPriceTrackId(null);
-                                   onOpenLicenseModal(track);
-                                 }}
-                                 className="w-full text-center py-1 bg-neutral-900 hover:bg-neutral-850 text-neutral-400 hover:text-white transition rounded text-[9.5px] font-mono uppercase tracking-wide cursor-pointer flex items-center justify-center gap-1"
-                               >
-                                 <Tag size={10} className="text-purple-400" />
-                                 View All Tiers
-                               </button>
-                             </div>
-                           )}
+                         {/* Title block with metadata */}
+                         <div className="track-meta-block">
+                           <span className="t-name flex items-center gap-1.5 flex-wrap">
+                             <span>{track.title}</span>
+                             {track.plaque_awarded && (
+                               <span className="inline-flex items-center gap-0.5 bg-yellow-400/10 text-yellow-500 border border-yellow-400/20 text-[7.5px] font-sans font-black px-1.5 py-0.2 rounded uppercase tracking-wider animate-pulse ml-1">
+                                 🏆 PLATINUM
+                               </span>
+                             )}
+                           </span>
+                           <span className="t-prod">by {track.producer}</span>
                          </div>
  
+                         {/* Duration */}
+                         <span className="t-dur">{track.duration}</span>
+ 
+                         {/* BPM */}
+                         <span className="t-bpm">{track.bpm} BPM</span>
+ 
+                         {/* Tags */}
+                         <span className="t-tags truncate">{track.tags.join(', ')}</span>
+ 
+                         {/* Buy Licensing Button - clicking on this opens our beautiful licensing choices modal */}
+                         <div className="text-right">
+                           <button 
+                             className="purchase-action-btn animate-scaleUp"
+                             onClick={() => onOpenLicenseModal(track)}
+                           >
+                             + ${(track.price !== undefined ? track.price : 29.99).toFixed(2)}
+                           </button>
+                         </div>
                        </div>
-                     </div>
-                   );
-                 })}
+                     );
+                   })}
+                 </div>
               </div>
             )}
           </div>
@@ -1129,9 +1449,47 @@ export const Storefront: React.FC<StorefrontProps> = ({ onOpenLicenseModal }) =>
               </li>
             </ul>
           </div>
+
+          {/* Pristine Master Audio Engine Playback controller card */}
+          <div className="audio-card text-left">
+            <h3 className="font-sans font-extrabold text-xs text-white uppercase tracking-wider mb-1 animate-pulse">Beat Player Engine</h3>
+            <p className="text-[10px] sm:text-[10.5px] font-mono text-neutral-400 m-0 leading-normal">
+              High-Fidelity lossy/lossless streaming stream-deck router. Experience Wisconsin studio audio directly.
+            </p>
+            <div className="p-3 bg-neutral-950/60 rounded-xl border border-neutral-900 mt-4 flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="font-sans font-bold text-[11px] text-[#39FF14] truncate uppercase tracking-tight">
+                  Status: {currentTrack && isPlaying ? "Streaming Vault Audio" : "Engine Online"}
+                </p>
+                <p className="font-mono text-[9px] text-neutral-500 m-0 truncate">
+                  {currentTrack ? `Track: ${currentTrack.title}` : "Select any track from below catalog"}
+                </p>
+              </div>
+              <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-[#39FF14] animate-ping' : 'bg-[#39FF14]/40'}`} />
+            </div>
+            <button 
+              id="playTrigger"
+              className="control-btn font-sans font-bold py-3 px-6"
+              onClick={() => {
+                if (currentTrack) {
+                  togglePlay();
+                } else {
+                  // Fallback: active first track or seed track
+                  const fallbackTrack = tracks[0] || trendiestBeatsList[0] || null;
+                  if (fallbackTrack) {
+                    playTrack(fallbackTrack);
+                  }
+                }
+              }}
+            >
+              {currentTrack && isPlaying ? "Pause Audio Stream" : "Load & Play Beat"}
+            </button>
+          </div>
         </div>
 
       </div>
+      </>
+      )}
     </div>
   );
 };

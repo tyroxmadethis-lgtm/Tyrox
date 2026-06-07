@@ -16,6 +16,12 @@ class AudioSynthService {
   private key = 'Am';
   private masterVolume: GainNode | null = null;
   private analyserNode: AnalyserNode | null = null;
+
+  // HTML5 audio elements for lossless file streaming
+  private player: HTMLAudioElement | null = null;
+  private activeObjectUrl: string | null = null;
+  private isStreamingMode = false;
+  private mediaSource: MediaElementAudioSourceNode | null = null;
   
   // Client callbacks
   private onTimeUpdateCallback: ((time: number, duration: number) => void) | null = null;
@@ -77,7 +83,7 @@ class AudioSynthService {
     }
   }
 
-  public play(trackId: string, bpm = 120, key = 'Am') {
+  public async play(trackId: string, bpm = 120, key = 'Am') {
     this.init();
     if (!this.ctx) return;
     
@@ -105,14 +111,105 @@ class AudioSynthService {
     this.trackStartTime = this.ctx.currentTime;
     this.elapsedSuspendedTime = 0;
 
-    // Start synthesizer loop schedule
-    this.scheduler();
-    
-    // Start virtual time progress callbacks (simulating a real play progress)
-    this.startVirtualTimer();
+    // Check if we should attempt to stream the track from `/api/stream-beat/${trackId}`
+    this.isStreamingMode = false;
 
-    if (this.onStateChangeCallback) {
-      this.onStateChangeCallback(true);
+    // Build/retrieve programmatic HTML5 Audio Player
+    if (!this.player) {
+      this.player = (document.getElementById('nativeAudioEngine') || document.getElementById('coreEnginePlayer')) as HTMLAudioElement;
+      if (!this.player) {
+        this.player = document.createElement('audio');
+        this.player.id = 'nativeAudioEngine';
+        this.player.crossOrigin = 'anonymous';
+        this.player.preload = 'auto';
+        document.body.appendChild(this.player);
+      }
+      
+      // Connect programmatic HTML audio player to our existing global analyserNode!
+      try {
+        this.mediaSource = this.ctx.createMediaElementSource(this.player);
+        this.mediaSource.connect(this.masterVolume!);
+      } catch (e) {
+        console.warn("createMediaElementSource connect warning (benign):", e);
+      }
+
+      // Sync player events
+      this.player.onended = () => {
+        this.stop();
+        if (this.onTimeUpdateCallback) {
+          this.onTimeUpdateCallback(0, this.virtualDuration);
+        }
+      };
+
+      this.player.ontimeupdate = () => {
+        if (this.isStreamingMode && this.player) {
+          const current = this.player.currentTime;
+          const dur = this.player.duration || this.virtualDuration;
+          if (this.onTimeUpdateCallback) {
+            this.onTimeUpdateCallback(current, dur);
+          }
+        }
+      };
+    }
+
+    // Clean up older object URLs
+    if (this.activeObjectUrl) {
+      URL.revokeObjectURL(this.activeObjectUrl);
+      this.activeObjectUrl = null;
+    }
+
+    // Setup streaming trigger indicator
+    const playBtn = document.getElementById('playTrigger');
+    if (playBtn) {
+      playBtn.innerText = "Streaming pure lossless assets...";
+      playBtn.style.setProperty("background", "#ff9f43", "important");
+    }
+
+    try {
+      console.log(`Initiating stream transfer for track ID: ${trackId}`);
+      const streamResponse = await fetch(`/api/stream-beat/${trackId}`);
+      if (!streamResponse.ok) {
+        throw new Error("Target audio file path corrupted or offline.");
+      }
+
+      const rawAudioBlob = await streamResponse.blob();
+      this.activeObjectUrl = URL.createObjectURL(rawAudioBlob);
+
+      this.player.src = this.activeObjectUrl;
+      this.player.load();
+      this.isStreamingMode = true;
+
+      await this.player.play();
+
+      if (playBtn) {
+        playBtn.innerText = "Playing Pristine Beat";
+        playBtn.style.setProperty("background", "#2ed573", "important");
+      }
+      
+      if (this.onStateChangeCallback) {
+        this.onStateChangeCallback(true);
+      }
+    } catch (error) {
+      console.warn("High fidelity streaming handler fell back to procedure synth engine:", error);
+      if (playBtn) {
+        playBtn.innerText = "Stream offline - Fallback Active";
+        playBtn.style.setProperty("background", "#ff4757", "important");
+      }
+
+      this.isStreamingMode = false;
+      if (this.player) {
+        this.player.pause();
+        this.player.src = "";
+      }
+
+      // Procedural synthesizer fallback mode
+      this.isPlaying = true;
+      this.scheduler();
+      this.startVirtualTimer();
+
+      if (this.onStateChangeCallback) {
+        this.onStateChangeCallback(true);
+      }
     }
   }
 
@@ -120,7 +217,9 @@ class AudioSynthService {
     if (!this.isPlaying) return;
     this.isPlaying = false;
     
-    if (this.ctx) {
+    if (this.isStreamingMode && this.player) {
+      this.player.pause();
+    } else if (this.ctx) {
       this.elapsedSuspendedTime += (this.ctx.currentTime - this.trackStartTime);
       if (this.ctx.state === 'running') {
         this.ctx.suspend();
@@ -140,11 +239,18 @@ class AudioSynthService {
     if (!this.ctx || !this.currentTrackId) return;
 
     this.isPlaying = true;
-    this.ctx.resume();
-    this.trackStartTime = this.ctx.currentTime;
-    this.nextNoteTime = this.ctx.currentTime;
-    this.scheduler();
-    this.startVirtualTimer();
+    
+    if (this.isStreamingMode && this.player) {
+      this.player.play().catch(e => console.warn(e));
+    } else {
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+      this.trackStartTime = this.ctx.currentTime;
+      this.nextNoteTime = this.ctx.currentTime;
+      this.scheduler();
+      this.startVirtualTimer();
+    }
 
     if (this.onStateChangeCallback) {
       this.onStateChangeCallback(true);
@@ -154,6 +260,17 @@ class AudioSynthService {
   public stop() {
     this.isPlaying = false;
     this.currentTrackId = null;
+    
+    if (this.player) {
+      this.player.pause();
+      this.player.src = "";
+    }
+    this.isStreamingMode = false;
+
+    if (this.activeObjectUrl) {
+      URL.revokeObjectURL(this.activeObjectUrl);
+      this.activeObjectUrl = null;
+    }
     
     if (this.timerId) clearTimeout(this.timerId);
     if (this.playbackIntervalId) clearInterval(this.playbackIntervalId);
@@ -166,6 +283,9 @@ class AudioSynthService {
   }
 
   public getCurrentTime(): number {
+    if (this.isStreamingMode && this.player) {
+      return this.player.currentTime;
+    }
     if (!this.ctx || !this.isPlaying) {
       return this.elapsedSuspendedTime;
     }
@@ -173,11 +293,15 @@ class AudioSynthService {
   }
 
   public seek(seconds: number) {
-    if (!this.ctx) return;
-    this.elapsedSuspendedTime = seconds;
-    this.trackStartTime = this.ctx.currentTime;
-    if (this.onTimeUpdateCallback) {
-      this.onTimeUpdateCallback(seconds, this.virtualDuration);
+    if (this.isStreamingMode && this.player) {
+      this.player.currentTime = seconds;
+    } else {
+      if (!this.ctx) return;
+      this.elapsedSuspendedTime = seconds;
+      this.trackStartTime = this.ctx.currentTime;
+      if (this.onTimeUpdateCallback) {
+        this.onTimeUpdateCallback(seconds, this.virtualDuration);
+      }
     }
   }
 

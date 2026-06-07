@@ -158,42 +158,74 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ onOpenLicenseModal }) 
 
   if (!currentTrack) {
     return (
-      <div id="audio-player-idle" className="fixed bottom-0 left-0 right-0 h-22 bg-[#050608]/95 border-t border-neutral-900 px-6 flex items-center justify-between text-neutral-500 text-xs backdrop-blur-md z-40 select-none">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-neutral-900 rounded-md flex items-center justify-center border border-neutral-850">
-            <Music size={14} className="text-neutral-700" />
+      <div id="broadcastDeck" className="broadcast-deck opacity-80">
+        <audio id="nativeAudioEngine" crossOrigin="anonymous" preload="auto" style={{ display: 'none' }} />
+        
+        <div className="now-playing-panel">
+          <div className="w-[55px] h-[55px] bg-neutral-900 rounded-sm flex items-center justify-center border border-neutral-850">
+            <Music size={16} className="text-neutral-700" />
           </div>
-          <div>
-            <p className="font-sans font-bold text-neutral-400 uppercase tracking-wider text-[10px]">No Track Loaded</p>
-            <p className="font-mono text-[9px] text-[#555]">Select a premium beat to activate the stream player</p>
+          <div className="deck-text-group">
+            <span id="deckTrackTitle" className="text-neutral-550 font-sans font-bold text-xs uppercase">No Beat Loaded</span>
+            <span id="deckProducerName" className="text-[10px] text-neutral-600 font-mono uppercase tracking-wider">Select a beat to stream</span>
           </div>
         </div>
 
-        {/* Mailing list in idle player too */}
-        <div className="hidden sm:flex items-center gap-3">
-          <form onSubmit={handleNewsletterSubmit} className="flex items-center gap-2 bg-[#090a12]/80 border border-neutral-850 px-3 py-1.5 rounded-lg">
-            <Mail size={13} className="text-purple-400" />
+        {/* Persistent Newsletter row when player is unactivated */}
+        <div className="hidden lg:flex items-center gap-3 bg-[#08090d] border border-neutral-900/60 rounded px-3 py-1 text-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#a855f7] animate-pulse" />
+          <form onSubmit={handleNewsletterSubmit} className="flex items-center gap-2">
             <input
               type="email"
               required
               placeholder="Join Mailing List"
               value={newsletterEmail}
               onChange={(e) => setNewsletterEmail(e.target.value)}
-              className="bg-transparent text-[10px] text-neutral-200 outline-none w-36 md:w-48 font-mono placeholder:text-neutral-600"
+              className="bg-transparent text-[10px] text-neutral-300 outline-none w-36 font-mono font-bold"
             />
             <button
               type="submit"
-              className="px-2 py-0.5 bg-purple-600 hover:bg-purple-500 font-sans font-bold text-[9px] uppercase tracking-wider text-white rounded transition active:scale-95 cursor-pointer"
+              className="px-2 py-0.5 bg-[#a855f7] hover:bg-[#c084fc] font-sans font-bold text-[9px] uppercase text-white rounded transition cursor-pointer"
             >
-              Subscribe
+              Join
             </button>
           </form>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button onClick={togglePlay} className="p-3 bg-neutral-900 text-neutral-500 hover:text-white rounded-full border border-neutral-850 transition">
-            <Play size={15} />
-          </button>
+        <div className="playback-controls-panel">
+          <div className="button-row">
+            <button id="deckPrevBtn" className="deck-nav-btn opacity-45 cursor-not-allowed" disabled>
+              <SkipBack size={18} />
+            </button>
+            <button id="deckMasterPlayBtn" className="deck-core-toggle opacity-50 cursor-not-allowed" disabled>
+              <Play size={16} fill="currentColor" className="ml-0.5" />
+            </button>
+            <button id="deckNextBtn" className="deck-nav-btn opacity-45 cursor-not-allowed" disabled>
+              <SkipForward size={18} />
+            </button>
+          </div>
+          <div className="timeline-row">
+            <span id="timeCurrent" className="time-lbl">0:00</span>
+            <div id="timelineRail" className="timeline-track-rail cursor-not-allowed">
+              <div id="timelineFill" className="timeline-fill-bar" style={{ width: '0%' }} />
+            </div>
+            <span id="timeTotal" className="time-lbl">0:00</span>
+          </div>
+        </div>
+
+        <div className="utility-panel" style={{ width: '25%', gap: '16px' }}>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Volume2 size={13} className="text-neutral-600" />
+            <input 
+              type="range"
+              id="volumeSlider"
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              onChange={(e) => setVolume(parseFloat(e.target.value))}
+            />
+          </div>
         </div>
       </div>
     );
@@ -210,209 +242,145 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ onOpenLicenseModal }) 
     }
   };
 
-  const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const container = waveformContainerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickRatio = Math.max(0, Math.min(1, clickX / rect.width));
-    seekPlayer(clickRatio * duration);
-  };
-
-  const handleWaveformMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const container = waveformContainerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    const hoverX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, hoverX / rect.width));
-    setHoverProgressPercent(ratio * 100);
-  };
-
-  const handleWaveformMouseLeave = () => {
-    setHoverProgressPercent(null);
-  };
-
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
   return (
-    <div id="audio-player-active" className="fixed bottom-0 left-0 right-0 bg-[#050608]/95 border-t border-neutral-900/40 p-3 md:p-4 flex flex-col gap-3 shadow-[0_-20px_40px_rgba(0,0,0,0.85)] z-40 select-none backdrop-blur-xl">
-      
-      {/* 1. MASTER PERSISTENT WAVEFORM PROGRESS TIMELINE */}
-      <div className="w-full flex items-center gap-4">
-        {/* Playback time readout - left */}
-        <span className="font-mono text-[10px] text-purple-400 font-bold w-10 text-right shrink-0">{playbackTime}</span>
-        
-        {/* WAVEFORM GRID BOX */}
-        <div 
-          ref={waveformContainerRef}
-          onClick={handleWaveformClick}
-          onMouseMove={handleWaveformMouseMove}
-          onMouseLeave={handleWaveformMouseLeave}
-          className="flex-1 h-12 flex items-end justify-between gap-[2.5px] cursor-pointer relative group px-1"
-        >
-          {currentWaveformHeights.map((barHeight, idx) => {
-            const barPercent = (idx / barCount) * 100;
-            // Determine if this bar of the waveform is played, hovered, or unplayed
-            const isPlayed = barPercent <= progressPercent;
-            const isHovered = hoverProgressPercent !== null && barPercent <= hoverProgressPercent;
-            
-            let colorClass = 'bg-[#15161e]'; // Default unplayed color
-            if (isPlayed) {
-              colorClass = 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]';
-            } else if (isHovered) {
-              colorClass = 'bg-purple-500/40';
-            }
+    <div id="broadcastDeck" className="broadcast-deck">
+      {/* Underlying analytical stream engine node */}
+      <audio id="nativeAudioEngine" crossOrigin="anonymous" preload="auto" style={{ display: 'none' }} />
 
-            return (
-              <div 
-                key={idx}
-                style={{ height: `${barHeight}%` }}
-                className={`w-[4.2px] rounded-full transition-all duration-150 ${colorClass}`}
-              />
-            );
-          })}
-
-          {/* Hover timing tool tip popup overlay */}
-          {hoverProgressPercent !== null && duration > 0 && (
-            <div 
-              style={{ left: `${hoverProgressPercent}%` }}
-              className="absolute -top-7 transform -translate-x-1/2 bg-neutral-950 border border-neutral-800 text-[8px] font-mono text-neutral-300 px-2 py-0.5 rounded shadow pointer-events-none"
-            >
-              {Math.floor(((hoverProgressPercent / 100) * duration) / 60)}:
-              {String(Math.floor(((hoverProgressPercent / 100) * duration) % 60)).padStart(2, '0')}
-            </div>
-          )}
+      {/* Track Art & Metadata - Left Panel */}
+      <div className="now-playing-panel">
+        <img 
+          id="deckArt" 
+          src={currentTrack.imageUrl} 
+          alt={currentTrack.title} 
+          referrerPolicy="no-referrer"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop';
+          }}
+        />
+        <div className="deck-text-group">
+          <span id="deckTrackTitle" className="truncate text-white font-bold max-w-[130px]">{currentTrack.title}</span>
+          <span id="deckProducerName" className="truncate text-neutral-400 text-[10px]">by {currentTrack.producer || "Tyrox"}</span>
         </div>
-
-        {/* Master duration readout - right */}
-        <span className="font-mono text-[10px] text-neutral-400 w-10 shrink-0">{playbackDurationStr}</span>
       </div>
 
-      {/* PERSISTENT MAILING LIST SIGNUP ROW WITHIN PLAYER */}
-      <div className="w-full flex flex-col md:flex-row items-center justify-between gap-1.5 px-3 py-1.5 bg-[#08090d] border border-neutral-900/60 rounded-lg text-xs font-mono animate-fadeIn">
-        <div className="flex items-center gap-1.5 text-neutral-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-          <span className="uppercase font-bold text-[10px] tracking-wider text-neutral-300">Join Mailing List</span>
-          <span className="text-neutral-500 hidden lg:inline">// Get free files & producer deals instantly</span>
-        </div>
-        <form onSubmit={handleNewsletterSubmit} className="flex items-center gap-2 bg-[#040406] border border-neutral-850 px-2 py-0.5 rounded w-full md:w-auto max-w-sm shrink-0">
+      {/* Persistent Newsletter row within active player too */}
+      <div className="hidden lg:flex items-center gap-2 bg-[#08090d] border border-neutral-900/60 rounded px-2.5 py-1 text-xs">
+        <form onSubmit={handleNewsletterSubmit} className="flex items-center gap-1.5">
           <input
             type="email"
             required
             placeholder="artist@example.com"
             value={newsletterEmail}
             onChange={(e) => setNewsletterEmail(e.target.value)}
-            className="bg-transparent text-[10px] text-neutral-200 outline-none w-full md:w-44 font-mono px-1 py-0.5 placeholder:text-neutral-600"
+            className="bg-transparent text-[8.5px] text-neutral-300 outline-none w-28 font-mono"
           />
           <button
             type="submit"
-            className="px-2.5 py-0.5 bg-purple-600 hover:bg-purple-500 font-sans font-bold text-[9px] uppercase tracking-wider text-white rounded transition active:scale-95 cursor-pointer shrink-0"
+            className="px-2 py-0.5 bg-[#a855f7] hover:bg-[#c084fc] font-sans font-bold text-[8px] uppercase text-white rounded transition cursor-pointer"
           >
-            {subscribedNewsletter ? "Joined!" : "SUBSCRIBE"}
+            {subscribedNewsletter ? "OK!" : "JOIN"}
           </button>
         </form>
       </div>
 
-      {/* 2. AUDIO PLAYER CONTROLS & META GRID BOX */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 w-full border-t border-neutral-900/40 pt-3">
-        
-        {/* Track Title / Metadata Thumbnail - Left */}
-        <div className="flex items-center gap-3 w-full md:w-1/3 min-w-[200px]">
-          <div className="relative overflow-hidden w-11 h-11 rounded-sm border border-neutral-800 flex-shrink-0 bg-black flex items-center justify-center">
-            <img 
-              src={currentTrack.imageUrl} 
-              alt={currentTrack.title} 
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-contain"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-bg-dark/60 to-transparent pointer-events-none" />
-          </div>
-          <div className="truncate pr-4 leading-tight">
-            <div className="flex items-center gap-2">
-              <h4 className="font-sans font-black text-xs text-white uppercase tracking-tight truncate">
-                {currentTrack.title}
-              </h4>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 font-mono text-[10px]">
-              <span className="text-neutral-500 font-bold truncate uppercase">{currentTrack.bpm} BPM</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Central Transport Controls Bar - Center */}
-        <div className="flex items-center gap-5 justify-center w-full md:w-1/3 shrink-0">
+      {/* Central Interactive Timeline Transport - Middle Panel */}
+      <div className="playback-controls-panel">
+        <div className="button-row">
           <button 
+            id="deckPrevBtn" 
             onClick={prevTrack} 
-            className="text-neutral-500 hover:text-white transition duration-150 cursor-pointer p-1"
-            title="Previous Track"
+            className="deck-nav-btn text-neutral-400 hover:text-white transition"
+            title="Previous Beat"
           >
-            <SkipBack size={15} />
+            <SkipBack size={18} />
           </button>
 
           <button 
+            id="deckMasterPlayBtn" 
             onClick={togglePlay} 
-            className="p-3 bg-purple-600 hover:bg-purple-500 text-white rounded-full transition transform active:scale-95 shadow-[0_4px_16px_rgba(168,85,247,0.18)] cursor-pointer"
-            title={isPlaying ? "Pause Preview" : "Play Preview"}
+            className="deck-core-toggle"
+            title={isPlaying ? "Pause Beat" : "Play Beat"}
           >
             {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
           </button>
 
           <button 
+            id="deckNextBtn" 
             onClick={nextTrack} 
-            className="text-neutral-500 hover:text-white transition duration-150 cursor-pointer p-1"
-            title="Next Track"
+            className="deck-nav-btn text-neutral-400 hover:text-white transition"
+            title="Next Beat"
           >
-            <SkipForward size={15} />
+            <SkipForward size={18} />
           </button>
         </div>
 
-        {/* Live FFT visualizer, Volume Control and Buy - Right */}
-        <div className="flex items-center justify-end gap-5 w-full md:w-1/3">
-          
-          {/* Audio FFT canvas stream drawing */}
-          <div className="hidden lg:block w-32 h-6 relative shrink-0 border-r border-neutral-900/40 pr-3">
-            <canvas 
-              ref={canvasRef} 
-              width={128} 
-              height={24} 
-              className="w-full h-full opacity-90"
-              title="FFT Audio Signal Spectrum"
+        {/* Timeline Row with Rail and Live Progress Fill */}
+        <div className="timeline-row">
+          <span id="timeCurrent" className="time-lbl">{playbackTime}</span>
+          <div 
+            id="timelineRail" 
+            className="timeline-track-rail"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+              seekPlayer(ratio * duration);
+            }}
+          >
+            <div 
+              id="timelineFill" 
+              className="timeline-fill-bar" 
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
+          <span id="timeTotal" className="time-lbl">{playbackDurationStr}</span>
+        </div>
+      </div>
 
-          {/* Volume slider control */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button 
-              onClick={handleMuteToggle}
-              className="text-neutral-400 hover:text-white transition cursor-pointer p-1"
-              title={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted || volume === 0 ? <VolumeX size={14} className="text-red-400" /> : <Volume2 size={14} />}
-            </button>
-            <input 
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(e) => {
-                const nv = parseFloat(e.target.value);
-                setVolume(nv);
-                setIsMuted(nv === 0);
-              }}
-              className="w-14 accent-purple-500 cursor-pointer bg-neutral-900 rounded-lg h-1 scale-y-100"
-            />
-          </div>
+      {/* Live Spectrum & Purchase/Volume Panel - Right Panel */}
+      <div className="utility-panel" style={{ width: '25%', gap: '16px' }}>
+        {/* Visualizer and Direct Buy Integration */}
+        <div className="hidden lg:block w-24 h-6 relative shrink-0 border-r border-[#14141f] pr-3">
+          <canvas 
+            ref={canvasRef} 
+            width={96} 
+            height={24} 
+            className="w-full h-full opacity-80"
+          />
+        </div>
 
-          {/* Direct Buy prompt from persistent bar */}
+        <button 
+          onClick={() => onOpenLicenseModal(currentTrack)}
+          style={{ padding: '6px 14px', fontSize: '10px' }}
+          className="purchase-action-btn scale-90 hover:scale-100 transition whitespace-nowrap uppercase font-sans font-black shrink-0"
+        >
+          Buy Lease
+        </button>
+
+        <div className="flex items-center gap-1.5 shrink-0">
           <button 
-            onClick={() => onOpenLicenseModal(currentTrack)}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-black text-[10px] rounded shadow-md shadow-purple-500/10 transition active:scale-95 cursor-pointer leading-tight uppercase tracking-wider"
+            onClick={handleMuteToggle}
+            className="text-neutral-450 hover:text-white transition cursor-pointer p-1"
           >
-            BUY ${(currentTrack.price !== undefined ? currentTrack.price : currentTrack.prices?.mp3 || 29.99).toFixed(2)}
+            {isMuted || volume === 0 ? <VolumeX size={14} className="text-red-400" /> : <Volume2 size={13} />}
           </button>
+          <input 
+            type="range"
+            id="volumeSlider"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={(e) => {
+              const nv = parseFloat(e.target.value);
+              setVolume(nv);
+              setIsMuted(nv === 0);
+            }}
+          />
         </div>
-
       </div>
     </div>
   );

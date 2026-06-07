@@ -298,6 +298,53 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('vv_tracks', JSON.stringify(tracks));
   }, [tracks]);
 
+  // Synchronize on startup with live MongoDB backend tracks list
+  useEffect(() => {
+    fetch('/api/beats/public-list')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.beats) {
+          setTracks(prev => {
+            const dbBeats: Track[] = data.beats.map((beat: any) => {
+              const existing = prev.find(t => t.id === beat.id);
+              return {
+                id: beat.id,
+                title: beat.title,
+                producer: "Tyrox",
+                bpm: beat.bpm || 140,
+                key: beat.key || "Am",
+                duration: "3:10",
+                tags: beat.tags || [],
+                imageUrl: beat.imageUrl || beat.image_url,
+                audioUrl: beat.audioUrl || beat.audio_url,
+                price: beat.price || 29.99,
+                prices: {
+                  mp3: beat.price || 29.99,
+                  wav: (beat.price || 29.99) * 1.5,
+                  unlimited: (beat.price || 29.99) * 3,
+                  exclusive: 499.00
+                },
+                plays: existing ? existing.plays : 0,
+                downloads: existing ? existing.downloads : 0,
+                sales: existing ? existing.sales : 0,
+                streams: existing ? (existing.streams !== undefined ? existing.streams : existing.plays) : 0,
+                plaque_awarded: existing ? !!existing.plaque_awarded : false,
+                createdAt: beat.createdAt || new Date().toISOString().split('T')[0]
+              };
+            });
+
+            const dbIds = new Set(dbBeats.map(b => b.id));
+            const localOnly = prev.filter(t => !dbIds.has(t.id));
+
+            return [...localOnly, ...dbBeats];
+          });
+        }
+      })
+      .catch(err => {
+        console.error("Failed to sync context tracks on mount:", err);
+      });
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('vv_cart', JSON.stringify(cart));
   }, [cart]);

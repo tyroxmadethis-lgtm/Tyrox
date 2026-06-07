@@ -12,6 +12,32 @@ import { put } from "@vercel/blob";
 import { compileInstantContract } from "./lib/contractGenerator";
 import { handleUpload } from "@vercel/blob/client";
 import { v2 as cloudinary } from "cloudinary";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+let s3ClientInstance: S3Client | null = null;
+function getS3Client(): { client: S3Client; bucketName: string; cdnUrl: string } | null {
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  const region = process.env.AWS_REGION || "us-east-1";
+  const bucketName = process.env.AWS_BUCKET_NAME || "your-trap-beats-storage";
+  const cdnUrl = process.env.AWS_CDN_DISTRIBUTION_URL || "https://cloudfront.net";
+
+  if (!accessKeyId || !secretAccessKey) {
+    return null;
+  }
+
+  if (!s3ClientInstance) {
+    s3ClientInstance = new S3Client({
+      region,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
+  }
+
+  return { client: s3ClientInstance, bucketName, cdnUrl };
+}
 
 // Configure Cloudinary securely on the backend
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
@@ -73,51 +99,96 @@ async function startServer() {
 
   const beatMulter = multer({ dest: "uploads/" });
 
-  // API Router - Save and serve the original, untouched uploaded audio file bypassing re-encoding or bitrate reduction
-  app.post("/api/upload-beat", beatMulter.single("beatFile"), (req, res) => {
-    if (!req.file) {
-      return res.status(400).send("No file uploaded.");
-    }
-
-    const inputPath = req.file.path;
-    const originalName = req.file.originalname || "audio";
-    // Find base name (without extension) and extension
-    const lastDotIdx = originalName.lastIndexOf('.');
-    const baseName = lastDotIdx !== -1 ? originalName.substring(0, lastDotIdx) : originalName;
-    const ext = lastDotIdx !== -1 ? originalName.substring(lastDotIdx) : ".wav";
-    const safeBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, "_");
-    const outputFilename = `${safeBaseName}-${req.file.filename}${ext}`;
-    const outputPath = path.join(convertedPath, outputFilename);
-
-    console.log(`Saving original untouched audio ${req.file.originalname} directly to: ${outputPath}`);
-
-    try {
-      if (fs.existsSync(inputPath)) {
-        try {
-          fs.renameSync(inputPath, outputPath);
-        } catch (renameErr) {
-          // If rename fails (e.g. moving across different partitions or docker volumes), fallback to copy/unlink
-          fs.copyFileSync(inputPath, outputPath);
-          fs.unlinkSync(inputPath);
-        }
-      } else {
-        return res.status(400).send("Source file missing.");
-      }
-
-      console.log(`Pristine unaltered audio file saved successfully at: /converted/${outputFilename}`);
-      res.status(200).json({ 
-        message: "Successfully uploaded pristine original audio!", 
-        wavPath: `/converted/${outputFilename}`,
-        filename: outputFilename
-      });
-    } catch (err: any) {
-      console.error("Audio saving error:", err);
+  // API Router - Save and serve the original uploaded audio file. Supports cloud AWS S3 upload if configured, else fallback locally.
+  app.post(
+    "/api/upload-beat",
+    beatMulter.fields([
+      { name: "beatFile", maxCount: 1 },
+      { name: "audioTrack", maxCount: 1 }
+    ]),
+    async (req: any, res) => {
       try {
-        fs.unlinkSync(inputPath);
-      } catch (uErr) {}
-      res.status(500).send(`Error processing audio: ${err.message || err}`);
+        const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+        const fileObj = filesMap?.["beatFile"]?.[0] || filesMap?.["audioTrack"]?.[0];
+
+        if (!fileObj) {
+          return res.status(400).json({ success: false, error: "No audio asset detected." });
+        }
+
+        const inputPath = fileObj.path;
+        const originalName = fileObj.originalname || "audio.wav";
+        const lastDotIdx = originalName.lastIndexOf(".");
+        const baseName = lastDotIdx !== -1 ? originalName.substring(0, lastDotIdx) : originalName;
+        const ext = lastDotIdx !== -1 ? originalName.substring(lastDotIdx) : ".wav";
+        const safeBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const cleanFileName = `beats/${Date.now()}_${safeBaseName}${ext}`;
+
+        console.log(`Processing backend upload-beat route for file: ${originalName} (Field: ${fileObj.fieldname})...`);
+
+        const s3Config = getS3Client();
+        if (s3Config) {
+          try {
+            console.log("Lazy S3 Config active, executing cloud transmission command...");
+            const fileBuffer = fs.readFileSync(inputPath);
+            const uploadParameters = {
+              Bucket: s3Config.bucketName,
+              Key: cleanFileName,
+              Body: fileBuffer,
+              ContentType: fileObj.mimetype || "audio/wav",
+              CacheControl: "max-age=31536000"
+            };
+
+            await s3Config.client.send(new PutObjectCommand(uploadParameters));
+            try {
+              fs.unlinkSync(inputPath);
+            } catch (unlinkErr) {}
+
+            const professionalStreamingUrl = `${s3Config.cdnUrl}/${cleanFileName}`;
+            console.log(`S3 Transmission complete. CloudFront stream link: ${professionalStreamingUrl}`);
+
+            return res.status(200).json({
+              success: true,
+              message: "Trap beat published securely to global delivery network.",
+              streamUrl: professionalStreamingUrl,
+              wavPath: professionalStreamingUrl,
+              filename: cleanFileName
+            });
+          } catch (s3Error: any) {
+            console.error("Cloud S3 transmission failure, attempting local fallback node...", s3Error);
+            // Let it fall through to local fallback below
+          }
+        }
+
+        // Local Storage Fallback Pipeline
+        const outputFilename = `${safeBaseName}-${fileObj.filename}${ext}`;
+        const outputPath = path.join(convertedPath, outputFilename);
+
+        console.log(`Executing local containment fallbacks for: ${originalName} directly to ${outputPath}`);
+
+        if (fs.existsSync(inputPath)) {
+          try {
+            fs.renameSync(inputPath, outputPath);
+          } catch (renameErr) {
+            fs.copyFileSync(inputPath, outputPath);
+            fs.unlinkSync(inputPath);
+          }
+        }
+
+        console.log(`Pristine unaltered audio file saved successfully at: /converted/${outputFilename}`);
+        return res.status(200).json({
+          success: true,
+          message: "Uploaded pristine original audio locally!",
+          streamUrl: `/converted/${outputFilename}`,
+          wavPath: `/converted/${outputFilename}`,
+          filename: outputFilename
+        });
+
+      } catch (err: any) {
+        console.error("Audio saving ultimate breakdown:", err);
+        return res.status(500).json({ success: false, error: `Error processing audio asset: ${err.message || err}` });
+      }
     }
-  });
+  );
 
   // CORS Middleware matching specified rules (https://vercel.app as AllowedOrigin, PUT, POST, GET, OPTIONS as AllowedMethods, * as AllowedHeaders)
   app.use((req, res, next) => {
@@ -1614,7 +1685,7 @@ async function startServer() {
   });
 
   // API Router - Pure Streaming Endpoint (Serves lossless binary blocks directly to browser codecs)
-  app.get("/api/stream-pure/:track_id", async (req, res) => {
+  app.get(["/api/stream-pure/:track_id", "/api/stream-beat/:track_id"], async (req, res) => {
     try {
       const trackId = req.params.track_id;
       if (!trackId) {
