@@ -172,6 +172,11 @@ export const Storefront: React.FC<StorefrontProps> = ({
     .filter(t => (t.streams ?? t.plays ?? 0) > 0)
     .sort((a, b) => ((b.streams ?? b.plays ?? 0) - (a.streams ?? a.plays ?? 0)));
 
+  // Dynamically derive mixes from any of the user's real beats that have hit at least 1 stream
+  const streamEligibleMixes = tracks
+    .filter(t => (t.streams ?? t.plays ?? 0) >= 1)
+    .sort((a, b) => ((b.streams ?? b.plays ?? 0) - (a.streams ?? a.plays ?? 0)));
+
   const handleFreeDownloadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!downloadTrack || !downloadEmail.trim() || !downloadEmail.includes('@')) {
@@ -643,77 +648,69 @@ export const Storefront: React.FC<StorefrontProps> = ({
 
         {/* 4. CURATED MIXES DASHBOARD */}
         <section className="curated-mixes-dashboard my-4 border-b border-neutral-900/40 pb-6">
-          <h2 className="section-title-label font-extrabold font-sans text-neutral-100 uppercase select-none tracking-tight">
-            Your mixes
+          <h2 className="section-title-label font-extrabold font-sans text-neutral-100 uppercase select-none tracking-tight flex items-center gap-2">
+            <span>💿</span> Your Mixes
           </h2>
           <div className="mixes-grid-canvas">
-              
-              {/* Mix Card 1: Composite artwork */}
-              <div 
-                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
-                onClick={() => {
-                  setSearchQuery('Trap');
-                  const sect = document.getElementById('catalogList');
-                  if (sect) sect.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                  <div className="composite-artwork-frame quad-image-grid aspect-square w-full select-none gap-0.5">
-                      <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&q=80" alt="Art 1" referrerPolicy="no-referrer" />
-                      <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=200&q=80" alt="Art 2" referrerPolicy="no-referrer" />
-                      <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&q=80" alt="Art 3" referrerPolicy="no-referrer" />
-                      <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&q=80" alt="Art 4" referrerPolicy="no-referrer" />
-                  </div>
-                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Ultimate Chill Mix</span>
+            {streamEligibleMixes.length === 0 ? (
+              <div className="col-span-full border border-dashed border-neutral-800/80 bg-neutral-950/30 rounded-2xl p-8 text-center my-2 max-w-full">
+                <div className="w-12 h-12 bg-purple-950/20 text-purple-400 border border-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <SlidersHorizontal size={18} className="animate-pulse" />
+                </div>
+                <h3 className="font-sans font-extrabold text-neutral-200 uppercase tracking-wider text-xs">No Mixes Accumulated Yet</h3>
+                <p className="font-mono text-[10px] text-neutral-500 uppercase tracking-widest max-w-md mx-auto mt-2 leading-relaxed">
+                  As soon as any of your beats get streamed or previewed, they will automatically be compiled right here as high-fidelity mixes in real-time.
+                </p>
+                <button
+                  onClick={() => {
+                    const catalogSect = document.getElementById('catalogList');
+                    if (catalogSect) catalogSect.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="mt-4 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-[9px] font-mono text-purple-400 border border-neutral-800 rounded uppercase cursor-pointer tracking-wider"
+                >
+                  ▶ Play any Beat below to trigger
+                </button>
               </div>
-
-              {/* Mix Card 2: Quad Composite artwork */}
-              <div 
-                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
-                onClick={() => {
-                  setSearchQuery('Drill');
-                  const sect = document.getElementById('catalogList');
-                  if (sect) sect.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                  <div className="composite-artwork-frame quad-image-grid aspect-square w-full select-none gap-0.5">
-                      <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&q=80" alt="Art 1" referrerPolicy="no-referrer" />
-                      <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&q=80" alt="Art 2" referrerPolicy="no-referrer" />
-                      <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&q=80" alt="Art 3" referrerPolicy="no-referrer" />
-                      <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=200&q=80" alt="Art 4" referrerPolicy="no-referrer" />
+            ) : (
+              streamEligibleMixes.map((track) => {
+                const isSelPlay = currentTrack?.id === track.id && isPlaying;
+                return (
+                  <div 
+                    key={track.id}
+                    onClick={() => playTrack(track)}
+                    className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group cursor-pointer"
+                  >
+                    <div className="composite-artwork-frame single-image-cover aspect-square w-full select-none relative overflow-hidden">
+                      <img 
+                        src={track.imageUrl} 
+                        alt={track.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
+                        referrerPolicy="no-referrer" 
+                      />
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
+                        <button className="p-3 bg-purple-600 rounded-full text-white transform scale-90 group-hover:scale-100 transition duration-300">
+                          {isSelPlay ? (
+                            <Pause size={18} fill="currentColor" />
+                          ) : (
+                            <Play size={18} fill="currentColor" className="ml-0.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1 mt-2">
+                      <div className="flex items-center justify-between gap-1 w-full">
+                        <span className="mix-card-title group-hover:text-purple-400 transition truncate text-xs font-bold text-neutral-100">{track.title} Mix</span>
+                        <span className="bg-[#39FF14]/10 text-[#39FF14] text-[9px] font-mono px-1.5 py-0.5 rounded border border-[#39FF14]/20 shrink-0 select-none">
+                          📈 {track.streams ?? track.plays ?? 0} STREAMS
+                        </span>
+                      </div>
+                      <p className="font-mono text-[9.5px] text-neutral-500 uppercase tracking-wider">{track.bpm} BPM • {track.key} • PROD. TYROX</p>
+                    </div>
                   </div>
-                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Aggressive Trap Fuel</span>
-              </div>
-
-              {/* Mix Card 3: Single artwork cover */}
-              <div 
-                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
-                onClick={() => {
-                  setSearchQuery('Sad');
-                  const sect = document.getElementById('catalogList');
-                  if (sect) sect.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                  <div className="composite-artwork-frame single-image-cover aspect-square w-full select-none">
-                      <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&q=80" className="w-full h-full object-cover" alt="Single Cover" referrerPolicy="no-referrer" />
-                  </div>
-                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Late Night Drift Sessions</span>
-              </div>
-
-              {/* Mix Card 4: Single artwork cover */}
-              <div 
-                className="mix-card-item bg-neutral-950/45 p-3.5 rounded-xl border border-neutral-900/60 transition duration-300 hover:scale-[1.01] hover:border-purple-500/30 shadow-md group" 
-                onClick={() => {
-                  setSearchQuery('Vibe');
-                  const lgSect = document.getElementById('catalogList');
-                  if (lgSect) lgSect.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                  <div className="composite-artwork-frame single-image-cover aspect-square w-full select-none">
-                      <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&q=80" className="w-full h-full object-cover" alt="Single Cover" referrerPolicy="no-referrer" />
-                  </div>
-                  <span className="mix-card-title mt-2 group-hover:text-purple-400 transition truncate">Master Stems Vault</span>
-              </div>
-
+                );
+              })
+            )}
           </div>
         </section>
 
