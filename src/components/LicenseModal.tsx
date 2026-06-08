@@ -21,17 +21,59 @@ export const LicenseModal: React.FC<LicenseModalProps> = ({ track, onClose }) =>
   const tiers = [
     {
       id: 'mp3' as const,
-      name: 'Standard Premium License',
-      price: track.price !== undefined ? track.price : track.prices?.mp3 || 29.99,
-      format: 'High-Quality Master WAV + 320kbps MP3 Included',
+      name: 'Standard Leased License',
+      price: track.prices?.mp3 || 29.99,
+      format: '320kbps MP3 Master Included',
+      popular: false,
+      benefits: [
+        'Commercial vocal recording allowed',
+        'Distribute up to 5,000 streams / copies',
+        'Non-exclusive rights (track remains in catalog)',
+        'Delivered instantly on checkout'
+      ],
+      tagline: 'Standard mp3 licensing lease, perfect for mixtape tracks or indie demos.'
+    },
+    {
+      id: 'wav' as const,
+      name: 'High-Quality WAV Lease',
+      price: track.prices?.wav || 49.99,
+      format: '24-bit Lossless WAV Included',
       popular: true,
       benefits: [
-        'Used for commercial vocal recording & streaming releases',
-        'Distribute unlimited streams & copies under standard leasing',
-        'Non-exclusive rights (track remains available in catalog)',
-        'Uncompressed master wav file with all stem elements'
+        'Used for commercial streaming releases',
+        'Distribute up to 50,000 streams / copies',
+        'Non-exclusive rights (track remains in catalog)',
+        'Highest quality uncompressed audio mixdown'
       ],
-      tagline: 'Definitive full-fidelity master delivery of physical and digital assets, signed by TYROX.'
+      tagline: 'The ideal mix-ready lease preferred by audio engineers and recording artists.'
+    },
+    {
+      id: 'unlimited' as const,
+      name: 'Unlimited Rights Lease',
+      price: track.prices?.unlimited || 149.99,
+      format: 'Uncompressed WAV + Trackout Stems',
+      popular: false,
+      benefits: [
+        'Unlimited audio streams and physical copies',
+        'Radio broadcasting & live show performance rights',
+        'Includes full tracked-out stem files for deep remixing',
+        '100% royalty-free under the license terms'
+      ],
+      tagline: 'Unleash full potential with unlimited streams, radio play, and multi-stem files.'
+    },
+    {
+      id: 'exclusive' as const,
+      name: 'Exclusive Buyout Right',
+      price: track.prices?.exclusive || 499.99,
+      format: 'Exclusive Ownership Contract',
+      popular: false,
+      benefits: [
+        'Full ownership (beat removed from public catalog)',
+        'Uncapped streaming, monetization & resale rights',
+        'All raw high-fidelity multitracks & master stems',
+        'Direct signed PDF acquisition contract'
+      ],
+      tagline: 'Definitive exclusive transfer of ownership, removing the beat forever from our store.'
     }
   ];
 

@@ -3,6 +3,8 @@ import { useStore } from '../context/StoreContext';
 import { ShieldCheck, Sparkles, Award, Play, Instagram, Twitter, Youtube, FolderEdit, Upload, Image, RotateCcw, Music } from 'lucide-react';
 import { z } from "zod";
 import { uploadDirectToCloud } from '@/lib/DirectUploader';
+import { supabase } from '../services/supabaseClient';
+import { Track } from '../types';
 
 export const globalSetupSchema = z.object({
   bio: z.string().max(1000),
@@ -22,7 +24,59 @@ export const globalSetupSchema = z.object({
 });
 
 export const AboutView: React.FC = () => {
-  const { setActiveTab } = useStore();
+  const { setActiveTab, playTrack, togglePlay, currentTrack, isPlaying, tracks: storeTracks } = useStore();
+  const [dbTracks, setDbTracks] = React.useState<any[]>([]);
+  const [loadingDb, setLoadingDb] = React.useState(true);
+
+  React.useEffect(() => {
+    async function fetchDbTracks() {
+      if (!supabase) {
+        setLoadingDb(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('marketplace_tracks')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          setDbTracks(data);
+        } else {
+          console.error("Supabase fail inline profile direct sync:", error);
+        }
+      } catch (e) {
+        console.error("Error direct syncing profile catalog:", e);
+      } finally {
+        setLoadingDb(false);
+      }
+    }
+    fetchDbTracks();
+  }, []);
+
+  const mapToTrack = (dbTrack: any, index: number): Track => {
+    return {
+      id: dbTrack.id || `db-track-${index}`,
+      title: dbTrack.title || "Untitled Beat",
+      producer: dbTrack.producer || "Tyrox",
+      bpm: parseInt(dbTrack.bpm) || 140,
+      key: dbTrack.key || "C Minor",
+      duration: dbTrack.duration || "3:00",
+      tags: dbTrack.tags || ["Trap", "Dark", "Aggressive"],
+      imageUrl: dbTrack.image_url || dbTrack.imageUrl || "/static/images/tyrox_profile.jpg",
+      audioUrl: dbTrack.stream_url || dbTrack.audioUrl || "/static/converted/god_mode_tagged_preview.mp3",
+      price: dbTrack.price || 44.99,
+      prices: {
+        mp3: dbTrack.price_mp3 || dbTrack.price || 44.99,
+        wav: dbTrack.price_wav || 129.99,
+        unlimited: dbTrack.price_unlimited || 299.99,
+        exclusive: dbTrack.price_exclusive || 499.99
+      },
+      plays: dbTrack.plays || 0,
+      downloads: dbTrack.downloads || 0,
+      sales: dbTrack.sales || 0,
+      createdAt: dbTrack.created_at || dbTrack.createdAt || new Date().toISOString()
+    };
+  };
 
   const [editMode, setEditMode] = React.useState(false);
   const [bioText, setBioText] = React.useState(() => {
@@ -422,515 +476,449 @@ export const AboutView: React.FC = () => {
   };
 
   return (
-    <div id="about-page-view" className="py-12 px-4 md:px-8 max-w-5xl mx-auto pt-6 flex flex-col gap-10 min-h-screen text-neutral-100">
+    <div id="about-page-view" className="py-12 px-4 md:px-8 max-w-7xl mx-auto pt-6 flex flex-col gap-8 min-h-screen text-neutral-100">
       
-      {/* Premium Epic Visual About Banner */}
+      {/* 1. Epic Producer Canopy Banner */}
       <div 
-        className="relative rounded-2xl overflow-hidden h-44 sm:h-60 md:h-72 w-full shadow-2xl border border-neutral-900/80 flex items-end"
+        className="relative rounded-2xl overflow-hidden h-40 sm:h-56 md:h-64 w-full shadow-2xl border border-neutral-900/85 flex items-end"
         style={{
           backgroundImage: `url('${bannerPreview || bannerImg}')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-[#050608] via-transparent to-black/25 pointer-events-none" />
-        <div className="absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-[#050608]/15 to-transparent pointer-events-none" />
-        <div className="absolute inset-y-0 right-0 w-1/4 bg-gradient-to-l from-[#050608]/15 to-transparent pointer-events-none" />
-        
-        {/* Pinned Social Links Dock */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-3.5 z-10 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#020204] via-transparent to-black/30 pointer-events-none" />
+        <div className="absolute bottom-4 right-4 flex items-center gap-3.5 z-10 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-lg">
           {socials.tiktok && (
-            <a href={socials.tiktok} target="_blank" rel="noreferrer" title="TikTok" className="text-neutral-300 hover:text-red-500 transition-colors duration-200 pb-0.5">
+            <a href={socials.tiktok} target="_blank" rel="noreferrer" title="TikTok" className="text-neutral-300 hover:text-red-500 transition-colors pb-0.5">
               <Music className="w-4 h-4" />
             </a>
           )}
           {socials.instagram && (
-            <a href={socials.instagram} target="_blank" rel="noreferrer" title="Instagram" className="text-neutral-300 hover:text-pink-500 transition-colors duration-200 pb-0.5">
+            <a href={socials.instagram} target="_blank" rel="noreferrer" title="Instagram" className="text-neutral-300 hover:text-pink-500 transition-colors pb-0.5">
               <Instagram className="w-4 h-4" />
             </a>
           )}
           {socials.youtube && (
-            <a href={socials.youtube} target="_blank" rel="noreferrer" title="YouTube" className="text-neutral-300 hover:text-red-600 transition-colors duration-200 pb-0.5">
+            <a href={socials.youtube} target="_blank" rel="noreferrer" title="YouTube" className="text-neutral-300 hover:text-red-600 transition-colors pb-0.5">
               <Youtube className="w-4 h-4" />
             </a>
           )}
           {socials.twitter && (
-            <a href={socials.twitter} target="_blank" rel="noreferrer" title="Twitter" className="text-neutral-300 hover:text-sky-400 transition-colors duration-200 pb-0.5">
+            <a href={socials.twitter} target="_blank" rel="noreferrer" title="Twitter" className="text-neutral-300 hover:text-sky-400 transition-colors pb-0.5">
               <Twitter className="w-4 h-4" />
             </a>
           )}
         </div>
       </div>
 
-      {/* 📁 Folder: Edit Banner & Profile Pic Block */}
-      <div 
-        id="edit-header-folder" 
-        className="w-full max-w-[800px] mx-auto bg-[#0a0b10] border border-neutral-900 rounded-xl shadow-2xl overflow-hidden"
-      >
-        {/* Folder tab layout styling */}
-        <div className="flex items-center">
-          <div className="bg-[#121319] border-t border-x border-neutral-900 px-5 py-2.5 text-[10px] font-mono text-red-500 uppercase tracking-widest rounded-t-lg font-bold ml-6 -mb-[1px] relative z-10 flex items-center gap-2">
-            <FolderEdit size={12} className="text-red-500" />
-            Folder: Edit Header & Profile Pic
+      {/* 2. DYNAMIC CONTENT BRANCH */}
+      {editMode ? (
+        /* --- HIGH FIDELITY SETTINGS UPLOADER COMPONENT --- */
+        <div className="space-y-8 animate-fadeIn max-w-4xl mx-auto w-full">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black uppercase text-white tracking-widest flex items-center gap-2">
+              🔧 Global Producer Customization
+            </h2>
+            <button 
+              onClick={toggleEditMode}
+              className="px-4 py-1.5 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-xs font-mono uppercase rounded text-neutral-400 font-bold transition"
+            >
+              Cancel Edit
+            </button>
           </div>
-          <div className="flex-1 border-b border-neutral-900 h-[1.5px]"></div>
-        </div>
 
-        {/* Folder Content Inner body with Drag & Drop & Click state */}
-        <div 
-          id="about-header-dragzone"
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          className={`p-6 border-t border-neutral-900 bg-[#111216]/50 transition-all duration-200 ${
-            isDragActive 
-              ? "border-red-500/40 bg-red-950/10" 
-              : "border-transparent"
-          }`}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-neutral-900/60">
-            
-            {/* PANEL 1: BANNER EDIT CONTROL */}
-            <div className="space-y-4 pr-0 md:pr-4">
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider font-bold">SECTION A: PORTAL BANNER</span>
-                <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">
-                  Customize Website & Store Banner
-                </h3>
-                <p className="text-[11px] text-neutral-400 leading-relaxed font-sans max-w-sm">
-                  Drag and drop your custom photo here or click choose to update. Changes website-wide storefront and profile banners.
-                </p>
-                
-                <div className="pt-2 flex items-center gap-3">
-                  <button
-                    id="btn-folder-choose-banner"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      bannerInputRef.current?.click();
-                    }}
-                    className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-mono text-[9px] tracking-widest uppercase rounded font-bold transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Upload size={11} />
-                    Choose Photo
-                  </button>
-                  
-                  <button
-                    id="btn-folder-reset-banner"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleResetBanner();
-                    }}
-                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[9px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <RotateCcw size={11} />
-                    Reset Default
-                  </button>
-                </div>
+          <div id="edit-header-folder" className="w-full bg-[#0a0b10] border border-neutral-900 rounded-xl shadow-2xl overflow-hidden">
+            <div className="flex items-center">
+              <div className="bg-[#121319] border-t border-x border-neutral-900 px-5 py-2.5 text-[10px] font-mono text-pink-500 uppercase tracking-widest rounded-t-lg font-bold ml-6 -mb-[1px] relative z-10 flex items-center gap-2">
+                <FolderEdit size={12} className="text-pink-500" />
+                Folder: Edit Header & Profile Pic
               </div>
+              <div className="flex-1 border-b border-neutral-900 h-[1.5px]"></div>
+            </div>
 
-              {/* Live Banner Miniature Preview */}
-              <div className="space-y-1.5 pt-1">
-                <span className="font-mono text-[8px] uppercase tracking-wider text-neutral-500">
-                  Store Banner Preview:
-                </span>
-                <div 
-                  id="folder-preview-thumbnail"
-                  className="relative h-16 rounded-lg overflow-hidden border border-neutral-800/80 shadow bg-neutral-950"
-                  style={{
-                    backgroundImage: `url('${bannerPreview || bannerImg}')`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }}
-                >
-                  <div className="absolute inset-0 bg-neutral-950/20" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Image size={14} className="text-white/40 drop-shadow" />
+            <div 
+              onDragEnter={handleDrag}
+              onDragOver={handleDrag}
+              onDragLeave={handleDrag}
+              onDrop={handleDrop}
+              className={`p-6 border-t border-neutral-900 bg-[#111216]/50 transition-all duration-200 ${
+                isDragActive ? "border-pink-500/40 bg-pink-950/10" : "border-transparent"
+              }`}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-neutral-900/60">
+                <div className="space-y-4 pr-0 md:pr-4">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider font-bold">SECTION A: PORTAL BANNER</span>
+                    <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">Customize Website Banner</h3>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed font-sans max-w-sm">
+                      Drag and drop your custom photo here or click choose to update. Updates storefront and profile banners.
+                    </p>
+                    <div className="pt-2 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => bannerInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-mono text-[9px] tracking-widest uppercase rounded font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Upload size={11} /> Choose Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetBanner}
+                        className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[9px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <RotateCcw size={11} /> Reset Default
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    <span className="font-mono text-[8px] uppercase tracking-wider text-neutral-500">Live Preview:</span>
+                    <div 
+                      className="relative h-16 rounded-lg overflow-hidden border border-neutral-800/80 shadow bg-neutral-950"
+                      style={{
+                        backgroundImage: `url('${bannerPreview || bannerImg}')`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-neutral-950/20" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-6 md:pt-0 pl-0 md:pl-6">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-mono text-pink-500 uppercase tracking-wider font-bold">SECTION B: PROFILE IMAGE</span>
+                    <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">Customize Profile Avatar</h3>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed font-sans max-w-sm">
+                      Choose a face, logo, or icon from your device. Updates across all artist portal and header badges permanently.
+                    </p>
+                    <div className="pt-2 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white font-mono text-[9px] tracking-widest uppercase rounded font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Upload size={11} /> Choose Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetProfile}
+                        className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[9px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <RotateCcw size={11} /> Reset Default
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-1">
+                    <div className="shrink-0 animate-pulse">
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#a855f7] bg-neutral-1000 shadow-lg">
+                        <img 
+                          src={profilePreview || profileImg} 
+                          alt="Artist avatar" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-mono text-[8px] uppercase tracking-wider text-neutral-500 block mb-0.5">Avatar Status Indicator</span>
+                      <p className="text-[10px] text-neutral-400 font-sans italic">linked to backend filesystem.</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* PANEL 2: PROFILE PHOTO EDIT CONTROL */}
-            <div className="space-y-4 pt-6 md:pt-0 pl-0 md:pl-6">
-              <div className="space-y-2">
-                <span className="text-[10px] font-mono text-pink-500 uppercase tracking-wider font-bold">SECTION B: PROFILE IMAGE</span>
-                <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">
-                  Customize Profile Avatar
-                </h3>
-                <p className="text-[11px] text-neutral-400 leading-relaxed font-sans max-w-sm">
-                  Choose a face, logo, or icon from your device. Updates across all artist portal and header badges permanently.
-                </p>
-                
-                <div className="pt-2 flex items-center gap-3">
-                  <button
-                    id="btn-folder-choose-profile"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      fileInputRef.current?.click();
-                    }}
-                    className="px-3 py-1.5 bg-pink-600 hover:bg-pink-500 text-white font-mono text-[9px] tracking-widest uppercase rounded font-bold transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Upload size={11} />
-                    Choose Photo
-                  </button>
-                  
-                  <button
-                    id="btn-folder-reset-profile"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleResetProfile();
-                    }}
-                    className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 font-mono text-[9px] tracking-widest uppercase rounded font-semibold transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <RotateCcw size={11} />
-                    Reset Default
-                  </button>
-                </div>
+          <div className="bg-[#0b0c10] border border-neutral-900 rounded-xl p-6 text-left space-y-4">
+            <h3 className="font-sans font-black text-xs uppercase tracking-wider text-pink-500">Edit Settings Matrix</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="block text-[10px] font-mono text-neutral-400 uppercase">Bio Description</label>
+                <textarea 
+                  value={tempBioText}
+                  onChange={(e) => setTempBioText(e.target.value)}
+                  className="w-full min-h-[100px] bg-neutral-950 border border-neutral-850 text-xs rounded p-3 text-neutral-200 font-sans focus:outline-none focus:border-purple-500"
+                />
               </div>
 
-              {/* Circular Avatar Preview */}
-              <div className="flex items-center gap-4 pt-1">
-                <div className="shrink-0">
-                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#ff0055] bg-neutral-950 shadow-[0_0_12px_rgba(255,0,85,0.3)]">
-                    <img 
-                      src={profilePreview || profileImg} 
-                      alt="Artist avatar" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-mono text-neutral-400 uppercase">TikTok URL</label>
+                  <input 
+                    type="text" 
+                    id="tiktok-url" 
+                    value={tempSocials.tiktok}
+                    onChange={(e) => setTempSocials({ ...tempSocials, tiktok: e.target.value })}
+                    className="w-full bg-neutral-950 border border-neutral-850 text-xs rounded p-2 text-neutral-200 font-mono focus:outline-none focus:border-purple-500"
+                  />
                 </div>
                 <div>
-                  <span className="font-mono text-[8px] uppercase tracking-wider text-neutral-500 block mb-0.5">
-                    Avatar Status Indicator
-                  </span>
-                  <p className="text-[10px] text-neutral-400 font-sans italic">
-                    Successfully linked to `/static/images/tyrox_profile.jpg` file pipeline.
-                  </p>
+                  <label className="block text-[10px] font-mono text-neutral-400 uppercase">Instagram URL</label>
+                  <input 
+                    type="text" 
+                    id="instagram-url" 
+                    value={tempSocials.instagram}
+                    onChange={(e) => setTempSocials({ ...tempSocials, instagram: e.target.value })}
+                    className="w-full bg-neutral-950 border border-neutral-850 text-xs rounded p-2 text-neutral-200 font-mono focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-neutral-400 uppercase">Twitter / X URL</label>
+                <input 
+                  type="text" 
+                  id="twitter-url" 
+                  value={tempSocials.twitter}
+                  onChange={(e) => setTempSocials({ ...tempSocials, twitter: e.target.value })}
+                  className="w-full bg-neutral-950 border border-neutral-850 text-xs rounded p-2 text-neutral-200 font-mono focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-neutral-400 uppercase">YouTube Channel URL</label>
+                <input 
+                  type="text" 
+                  id="youtube-url" 
+                  value={tempSocials.youtube}
+                  onChange={(e) => setTempSocials({ ...tempSocials, youtube: e.target.value })}
+                  className="w-full bg-neutral-950 border border-neutral-850 text-xs rounded p-2 text-neutral-200 font-mono focus:outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+
+            <button 
+              onClick={saveAllChanges}
+              disabled={uploading}
+              className="w-full py-3 bg-[#a855f7] hover:bg-purple-600 disabled:opacity-50 text-black font-mono font-bold text-xs uppercase tracking-widest rounded-lg transition"
+            >
+              {uploading ? 'Processing Direct File Upload...' : 'Save Global Profile Setup'}
+            </button>
+          </div>
+
+          <input type="file" ref={fileInputRef} onChange={handleProfileChange} className="hidden" accept="image/*" />
+          <input type="file" ref={bannerInputRef} onChange={handleBannerChange} className="hidden" accept="image/*" />
+        </div>
+      ) : (
+        /* --- TYROX NATIVE PROFILE DASHBOARD (TWO-COLUMN HUB) --- */
+        <div id="profile-shell-container" className="flex flex-col lg:flex-row gap-8 w-full max-w-7xl mx-auto px-1">
+          
+          {/* LEFT SIDEBAR PROFILE CARD */}
+          <aside className="profile-left-sidebar w-full lg:w-[280px] bg-[#0c0d12] border border-neutral-900 rounded-2xl p-6 flex flex-col items-center h-fit shrink-0 shadow-xl">
+            <div className="user-avatar-placeholder w-24 h-24 rounded-full overflow-hidden border-2 border-purple-500/30 bg-[#1b1b26] flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(168,85,247,0.15)] relative">
+              <img 
+                src={profileImg} 
+                alt="Tyrox Avatar" 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/static/images/tyrox_profile.jpg";
+                }}
+              />
+            </div>
+            <h2 className="profile-username-lbl font-sans font-black text-white text-lg mb-4 uppercase tracking-widest text-center select-none">
+              tyroxmadethis
+            </h2>
+            
+            <button 
+              className="edit-profile-btn-action w-full bg-[#161622] hover:bg-neutral-900 border border-neutral-800 text-white py-3 rounded-lg font-bold text-xs uppercase tracking-wider cursor-pointer transition active:scale-95 text-center"
+              onClick={toggleEditMode}
+            >
+              📝 Edit Profile
+            </button>
+            
+            <div className="stats-counter-block w-full border-t border-neutral-900 pt-5 mt-5 space-y-4 text-left">
+              <div className="stat-row-lbl flex justify-between font-sans text-xs text-neutral-400">
+                <span className="uppercase tracking-widest">Followers</span> 
+                <strong className="text-white font-black text-sm">0</strong>
+              </div>
+              <div className="stat-row-lbl flex justify-between font-sans text-xs text-neutral-400">
+                <span className="uppercase tracking-widest">Plays</span> 
+                <strong className="text-white font-black text-sm">0</strong>
+              </div>
+              <div className="stat-row-lbl flex justify-between font-sans text-xs text-neutral-400">
+                <span className="uppercase tracking-widest font-bold text-purple-400">Tracks</span> 
+                <strong id="uiTrackCount" className="text-[#a855f7] font-black text-sm">
+                  {dbTracks.length}
+                </strong>
+              </div>
+            </div>
+          </aside>
+
+          {/* RIGHT MAIN PANEL: VAULT LISTING CATALOG */}
+          <main className="profile-main-catalog-panel flex-1 space-y-6">
+            
+            {/* Elegant Header Bio Summary */}
+            <div className="bg-[#0c0d12] border border-neutral-900 rounded-2xl p-6 text-left shadow-lg">
+              <h2 className="text-sm font-black uppercase text-[#a855f7] tracking-widest mb-2 select-none">
+                Producer Bio
+              </h2>
+              <p className="text-xs text-neutral-400 leading-relaxed font-sans">
+                {bioText}
+              </p>
+            </div>
+
+            {/* REAL-TIME BLAZE BEAT STOREFRONT GRID */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-black uppercase text-white tracking-widest select-none">
+                  THE VAULT PRO-BLAZE CATALOG
+                </h3>
+                <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">
+                  Live Postgres Sync
+                </span>
+              </div>
+
+              <div className="blaze-tracks-grid space-y-2.5" id="profileBlazeGrid">
+                
+                {/* Real Data Render */}
+                {dbTracks.length > 0 ? (
+                  dbTracks.map((track, index) => {
+                    const isCurrentPlaying = currentTrack && currentTrack.title === track.title && isPlaying;
+                    const mappedTrack = mapToTrack(track, index);
+                    return (
+                      <div 
+                        key={track.id || index} 
+                        id={`profile-track-${index}`}
+                        className={`blaze-track-row flex flex-col sm:flex-row items-center justify-between p-4 bg-neutral-950/80 border border-neutral-900 rounded-xl hover:border-purple-500/25 hover:bg-neutral-950/95 transition-all gap-4 text-left ${
+                          isCurrentPlaying ? 'active-playing-row border-purple-500/40 bg-purple-950/5' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                          <button 
+                            className="row-play-circle w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center font-bold text-sm transition-all active:scale-90 shadow-md select-none shrink-0"
+                            onClick={() => {
+                              if (isCurrentPlaying) {
+                                togglePlay();
+                              } else {
+                                playTrack(mappedTrack);
+                              }
+                            }}
+                          >
+                            {isCurrentPlaying ? '⏸' : '▶'}
+                          </button>
+                          <div className="meta-cell min-w-0">
+                            <span className="beat-name block font-sans font-extrabold text-neutral-100 text-[13.5px] uppercase tracking-wide truncate">
+                              {track.title}
+                            </span>
+                            <span className="file-spec-tag block font-mono text-[9.5px] text-neutral-500 uppercase tracking-widest mt-0.5 select-none font-bold">
+                              Trap Core Instrumental
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="stat-cell font-mono text-xs text-neutral-400 whitespace-nowrap px-4 py-1.5 bg-neutral-900/40 rounded border border-neutral-900/60 select-none">
+                          {track.bpm || '140'} BPM
+                        </span>
+
+                        <div className="action-cell w-full sm:w-auto text-right shrink-0">
+                          <button 
+                            className="blaze-buy-btn w-full sm:w-auto px-4 py-2 bg-white text-black hover:bg-[#a855f7] hover:text-white text-[10px] font-extrabold uppercase rounded shadow-md tracking-wider transition active:scale-95 cursor-pointer text-center"
+                            onClick={() => {
+                              if ((window as any).initializeLicensePurchase) {
+                                (window as any).initializeLicensePurchase(
+                                  track.title, 
+                                  String(track.price || 44.99), 
+                                  track.stream_url || track.audioUrl || '/static/converted/god_mode_tagged_preview.mp3'
+                                );
+                              }
+                            }}
+                          >
+                            ACQUIRE RIGHTS
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  /* Live Empty Fallback Row */
+                  <div className="no-content-fallback-state flex flex-col items-center justify-center p-20 text-center border border-neutral-900 rounded-2xl bg-[#08090d]/30" id="fallbackStateZone">
+                    <div className="fallback-vinyl-icon text-5xl mb-4 text-neutral-700 select-none">💿</div>
+                    <h3 className="font-sans font-black uppercase text-sm text-neutral-300 tracking-wider">No Content Available</h3>
+                    <p className="font-sans text-xs text-neutral-500 mt-2 max-w-sm">
+                      Open your upload panel to push your trap beats live to this catalog.
+                    </p>
+                    <button 
+                      onClick={() => setActiveTab('studio')}
+                      className="px-5 py-2 mt-5 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-[10px] font-mono tracking-widest uppercase rounded font-bold text-neutral-400 transition"
+                    >
+                      Open Upload Panel
+                    </button>
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+            {/* Technical Gear Specs Segment */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              <div className="bg-[#0c0d12] border border-neutral-900 rounded-xl p-5 hover:border-purple-500/10 transition-all duration-300">
+                <Award className="text-purple-500 mb-3" size={22} />
+                <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">Underground Architect</h3>
+                <p className="font-sans text-xs text-neutral-400 mt-2 leading-relaxed">
+                  Pioneered elite Wisconsin acoustic trap rhythms and master analog sidechain matrices that drive massive speaker dynamics.
+                </p>
+              </div>
+
+              <div className="bg-[#0c0d12] border border-neutral-900 rounded-xl p-5 hover:border-purple-500/10 transition-all duration-300">
+                <ShieldCheck className="text-purple-500 mb-3" size={22} />
+                <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">Fully Cleared License stems</h3>
+                <p className="font-sans text-xs text-neutral-400 mt-2 leading-relaxed">
+                  All track materials are pre-cleared for direct monetization on Spotify, YouTube, and Apple music without content ID claims.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#07080c] border border-neutral-900 rounded-xl p-5 text-left space-y-3.5">
+              <h4 className="font-mono text-[9px] uppercase text-purple-400 tracking-widest font-black">HARDWARE & PRODUCTION SPECS</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5 font-mono text-[10px] text-neutral-400">
+                <div className="flex justify-between border-b border-neutral-900/60 pb-1.5 font-sans">
+                  <span>DAW</span>
+                  <span className="text-white font-bold font-mono">Ableton Live Pitch Engine</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-900/60 pb-1.5 font-sans">
+                  <span>Guitar Arsenal</span>
+                  <span className="text-white font-bold font-mono">Ibanez 8-String Multiscale</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-900/60 pb-1.5 font-sans">
+                  <span>Hardware Synth</span>
+                  <span className="text-white font-bold font-mono">Custom Tube Analog Preamps</span>
+                </div>
+                <div className="flex justify-between border-b border-neutral-900/60 pb-1.5 font-sans">
+                  <span>Accumulated dynamic range</span>
+                  <span className="text-[#a855f7] font-bold font-mono">-4.2 LUFS</span>
                 </div>
               </div>
             </div>
 
-          </div>
+          </main>
+
         </div>
-      </div>
+      )}
 
-      {/* 1. PROFILE BANNER SECTION */}
-      <div style={{ backgroundColor: '#111', color: 'white', maxWidth: '800px', margin: '0 auto', borderRadius: '8px', overflow: 'hidden', position: 'relative' }} className="w-full border border-neutral-800 shadow-2xl">
-        
-        <div style={{ backgroundImage: `linear-gradient(135deg, rgba(17, 18, 22, 0.75), rgba(0, 0, 0, 0.9)), url('${bannerPreview || bannerImg}')`, backgroundSize: 'cover', backgroundPosition: 'center', padding: '40px 20px', textAlign: 'center', borderBottom: '2px solid #ff0055', position: 'relative' }}>
-          
-          {/* Admin Controller Toggle */}
-          <button 
-            id="editBtn" 
-            onClick={toggleEditMode} 
-            style={{ position: 'absolute', top: '15px', right: '15px', backgroundColor: editMode ? '#555' : '#ff0055', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold', zIndex: 10 }}
-            className="hover:scale-[1.03] transition-all text-xs"
-          >
-            {editMode ? "Cancel" : "Edit Page"}
-          </button>
-
-          {/* Profile Photo */}
-          <div style={{ position: 'relative', width: '180px', height: '180px', margin: '0 auto 15px' }} className="group">
-            <img 
-              id="profileImg" 
-              src={profilePreview || profileImg} 
-              alt="Tyrox" 
-              style={{ width: '100%', height: '100%', borderRadius: '50%', border: '3px solid #ff0055', objectFit: 'cover' }}
-              className="shadow-[0_0_20px_rgba(255,0,85,0.4)] relative"
-            />
-            
-            <input 
-              type="file" 
-              id="photoInput" 
-              ref={fileInputRef}
-              onChange={handleProfileChange} 
-              style={{ display: 'none' }}
-              accept="image/*"
-            />
-            <input 
-              type="file" 
-              id="bannerInput" 
-              ref={bannerInputRef}
-              onChange={handleBannerChange} 
-              style={{ display: 'none' }}
-              accept="image/*"
-            />
-            {editMode && (
-              <div 
-                style={{ position: 'absolute', bottom: '-40px', left: '50%', transform: 'translateX(-50%)' }}
-                className="flex flex-col gap-1 z-20 whitespace-nowrap items-center"
-              >
-                <button 
-                  id="photoLabel" 
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }}
-                  style={{ background: 'rgba(0,0,0,0.95)', padding: '4px 8px', fontSize: '9px', borderRadius: '4px', cursor: 'pointer' }}
-                  className="hover:text-red-400 hover:scale-105 active:scale-95 transition-all border border-neutral-800/80 font-mono text-[9px] uppercase tracking-wider text-neutral-300 font-bold"
-                >
-                  Upload Profile Pic
-                </button>
-                <button 
-                  id="bannerLabel" 
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    bannerInputRef.current?.click();
-                  }}
-                  style={{ background: 'rgba(0,0,0,0.95)', padding: '4px 8px', fontSize: '9px', borderRadius: '4px', cursor: 'pointer' }}
-                  className="hover:text-purple-400 hover:scale-105 active:scale-95 transition-all border border-neutral-800/80 font-mono text-[9px] uppercase tracking-wider text-neutral-300 font-bold"
-                >
-                  Upload Top Banner
-                </button>
-              </div>
-            )}
-          </div>
-
-          <h2 style={{ fontSize: '2.2rem', margin: '0 0 5px 0', letterSpacing: '1px' }} className="font-logo font-black uppercase text-white">
-            TYROX <span className="text-red-500">MADE THIS</span>
-          </h2>
-          
-          {/* DYNAMIC BANNER FOOTER: Social Media Links Appear Here */}
-          <div id="socialsBannerBottom" style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '25px' }}>
-            {socials.tiktok ? (
-              <a 
-                id="linkTiktok" 
-                href={socials.tiktok} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                style={{ color: '#aaa', textDecoration: 'none', fontSize: '14px', fontWeight: '500', transition: 'color 0.2s' }}
-                className="hover:text-red-500 flex items-center gap-1.5"
-              >
-                <Music size={14} className="text-red-500" />
-                TikTok
-              </a>
-            ) : null}
-            {socials.instagram ? (
-              <a 
-                id="linkInsta" 
-                href={socials.instagram} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                style={{ color: '#aaa', textDecoration: 'none', fontSize: '14px', fontWeight: '500', transition: 'color 0.2s' }}
-                className="hover:text-red-500 flex items-center gap-1.5"
-              >
-                <Instagram size={14} className="text-red-500" />
-                Instagram
-              </a>
-            ) : null}
-            {socials.twitter ? (
-              <a 
-                id="linkTwitter" 
-                href={socials.twitter} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                style={{ color: '#aaa', textDecoration: 'none', fontSize: '14px', fontWeight: '500', transition: 'color 0.2s' }}
-                className="hover:text-purple-400 flex items-center gap-1.5"
-              >
-                <Twitter size={14} className="text-purple-400" />
-                Twitter
-              </a>
-            ) : null}
-            {socials.youtube ? (
-              <a 
-                id="linkYoutube" 
-                href={socials.youtube} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                style={{ color: '#aaa', textDecoration: 'none', fontSize: '14px', fontWeight: '500', transition: 'color 0.2s' }}
-                className="hover:text-red-600 flex items-center gap-1.5"
-              >
-                <Youtube size={14} className="text-red-600" />
-                YouTube
-              </a>
-            ) : null}
-          </div>
-        </div>
-
-        {/* 2. CONTENT & ADMIN INNER PANEL */}
-        <div style={{ padding: '30px', textAlign: 'center' }}>
-          {!editMode ? (
-            <div 
-              id="bioDisplay" 
-              style={{ color: '#ccc', lineHeight: '1.6', maxWidth: '600px', margin: '0 auto' }}
-              className="text-sm font-sans"
-            >
-              {bioText}
-            </div>
-          ) : (
-            /* Hidden Admin Form Matrix (made visible when editing) */
-            <div 
-              id="adminFormPanel" 
-              style={{ display: 'block', maxWidth: '500px', margin: '20px auto 0', textAlign: 'left', background: '#1a1a1a', padding: '20px', borderRadius: '6px' }}
-              className="border border-neutral-800"
-            >
-              <label style={{ display: 'block', marginBottom: '5px', color: '#ff0055' }} className="text-xs font-mono uppercase tracking-wide">
-                Bio Description:
-              </label>
-              <textarea 
-                id="bioEdit" 
-                value={tempBioText}
-                onChange={(e) => setTempBioText(e.target.value)}
-                style={{ width: '100%', height: '80px', background: '#222', color: 'white', border: '1px solid #333', padding: '8px', marginBottom: '15px', borderRadius: '4px' }}
-                className="text-xs font-sans focus:outline-none focus:border-red-500/50"
-              />
-
-              <label style={{ display: 'block', marginBottom: '5px', color: '#aaa' }} className="text-xs font-mono uppercase tracking-wide">
-                TikTok URL:
-              </label>
-              <input 
-                type="text" 
-                id="tiktok-url" 
-                value={tempSocials.tiktok}
-                onChange={(e) => setTempSocials({ ...tempSocials, tiktok: e.target.value })}
-                placeholder="https://tiktok.com/@..." 
-                style={{ width: '100%', background: '#222', color: 'white', border: '1px solid #333', padding: '8px', marginBottom: '12px', borderRadius: '4px' }}
-                className="text-xs font-mono focus:outline-none focus:border-red-500/50"
-              />
-              
-              <label style={{ display: 'block', marginBottom: '5px', color: '#aaa' }} className="text-xs font-mono uppercase tracking-wide">
-                Instagram URL:
-              </label>
-              <input 
-                type="text" 
-                id="instagram-url" 
-                value={tempSocials.instagram}
-                onChange={(e) => setTempSocials({ ...tempSocials, instagram: e.target.value })}
-                placeholder="https://instagram.com..." 
-                style={{ width: '100%', background: '#222', color: 'white', border: '1px solid #333', padding: '8px', marginBottom: '12px', borderRadius: '4px' }}
-                className="text-xs font-mono focus:outline-none focus:border-red-500/50"
-              />
-              
-              <label style={{ display: 'block', marginBottom: '5px', color: '#aaa' }} className="text-xs font-mono uppercase tracking-wide">
-                Twitter URL:
-              </label>
-              <input 
-                type="text" 
-                id="twitter-url" 
-                value={tempSocials.twitter}
-                onChange={(e) => setTempSocials({ ...tempSocials, twitter: e.target.value })}
-                placeholder="https://twitter.com..." 
-                style={{ width: '100%', background: '#222', color: 'white', border: '1px solid #333', padding: '8px', marginBottom: '12px', borderRadius: '4px' }}
-                className="text-xs font-mono focus:outline-none focus:border-red-500/50"
-              />
-              
-              <label style={{ display: 'block', marginBottom: '5px', color: '#aaa' }} className="text-xs font-mono uppercase tracking-wide">
-                YouTube URL:
-              </label>
-              <input 
-                type="text" 
-                id="youtube-url" 
-                value={tempSocials.youtube}
-                onChange={(e) => setTempSocials({ ...tempSocials, youtube: e.target.value })}
-                placeholder="https://youtube.com..." 
-                style={{ width: '100%', background: '#222', color: 'white', border: '1px solid #333', padding: '8px', marginBottom: '20px', borderRadius: '4px' }}
-                className="text-xs font-mono focus:outline-none focus:border-red-500/50"
-              />
-              
-              <button 
-                onClick={saveAllChanges}
-                disabled={uploading}
-                style={{ backgroundColor: uploading ? '#2c3e2f' : '#00ff66', color: uploading ? '#666' : 'black', border: 'none', padding: '10px 20px', cursor: uploading ? 'not-allowed' : 'pointer', borderRadius: '4px', fontWeight: 'bold', width: '100%' }}
-                className="hover:opacity-90 active:scale-95 transition-all text-sm uppercase tracking-wide font-mono disabled:opacity-50"
-              >
-                {uploading ? 'Uploading Simultaneously...' : 'Save Global Setup'}
-              </button>
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      {/* Grid detailing stats or credits */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#0b0c10] border border-neutral-900 rounded-xl p-6 hover:border-red-500/20 transition duration-300">
-          <Award className="text-red-500 mb-3" size={24} />
-          <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">Underground Pioneer</h3>
-          <p className="font-sans text-xs text-neutral-400 mt-2 leading-relaxed">
-            Pioneered the gritty sub-genre crossing distorted trap sidechain compression directly with low-tuned metallic rhythm patterns.
-          </p>
-        </div>
-
-        <div className="bg-[#0b0c10] border border-neutral-900 rounded-xl p-6 hover:border-purple-500/20 transition duration-300">
-          <ShieldCheck className="text-purple-500 mb-3" size={24} />
-          <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">100% Cleared Catalog</h3>
-          <p className="font-sans text-xs text-neutral-400 mt-2 leading-relaxed">
-            Every sample, guitar run, and synth component has been cleared or forged in-house. Protect your earnings on Spotify, YouTube & Apple Music.
-          </p>
-        </div>
-
-        <div className="bg-[#0b0c10] border border-neutral-900 rounded-xl p-6 hover:border-red-500/20 transition duration-300">
-          <Sparkles className="text-red-500 mb-3" size={24} />
-          <h3 className="font-sans font-black text-xs uppercase tracking-wider text-white">VIP Industry Sync</h3>
-          <p className="font-sans text-xs text-neutral-400 mt-2 leading-relaxed">
-            Supplying direct audio deliverables with pre-cleared master matrices for fast-track indie, label managers, and A&R scouters.
-          </p>
-        </div>
-      </div>
-
-      {/* Main Narrative and Gear Specs Block */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-        <div className="md:col-span-7 space-y-4">
-          <h2 className="text-xl font-bold font-sans tracking-tight text-white uppercase border-b border-neutral-900 pb-2">
-            The Philosophy
-          </h2>
-          <p className="text-xs text-neutral-400 leading-relaxed font-sans">
-            In a landscape saturated by repetitive loops, original composition is king. I track real guitar axes, program heavy industrial drum modules, and write customized synthesizers designed to shatter subwoofers. 
-          </p>
-          <p className="text-xs text-neutral-400 leading-relaxed font-sans">
-            Whether you are recording raw rap vocals over heavy bass lines, metal growls, or need watermarked instrumentals for gaming and background sync, the audio files generated here will place you miles ahead of the competition. 
-          </p>
-          <div className="pt-4 flex flex-wrap gap-3">
-            <button
-              onClick={() => setActiveTab('storefront')}
-              className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-[10px] font-mono tracking-widest uppercase rounded font-bold transition flex items-center gap-2"
-            >
-              <Play size={12} fill="currentColor" />
-              Listen to Tracks
-            </button>
-            <button
-              onClick={() => setActiveTab('contact')}
-              className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 border border-neutral-800 text-[10px] font-mono tracking-widest uppercase rounded font-semibold transition"
-            >
-              Secure Booking Pitch
-            </button>
-          </div>
-        </div>
-
-        {/* Compact Gear Specs Sidebar Info */}
-        <div className="md:col-span-5 bg-[#08090d] border border-neutral-900 rounded-xl p-5 space-y-4">
-          <h4 className="font-mono text-[10px] uppercase text-red-400 tracking-wider">HARDWARE & PRODUCTION SPECS</h4>
-          <div className="space-y-3 font-mono text-[9px] text-neutral-400">
-            <div className="flex justify-between border-b border-neutral-900 pb-1.5">
-              <span>DAW</span>
-              <span className="text-white">Ableton Live Pitch Engine</span>
-            </div>
-            <div className="flex justify-between border-b border-neutral-900 pb-1.5">
-              <span>Guitar Arsenal</span>
-              <span className="text-white">Ibanez 8-String (Multiscale)</span>
-            </div>
-            <div className="flex justify-between border-b border-neutral-900 pb-1.5">
-              <span>Hardware Synth</span>
-              <span className="text-white">Custom Analog Tube Preamps</span>
-            </div>
-            <div className="flex justify-between border-b border-neutral-900 pb-1.5">
-              <span>Dynamic Range Limit</span>
-              <span className="text-white">-4 LUF (Aggressive Underground)</span>
-            </div>
-            <div className="flex justify-between">
-              <span>A&R Clearance System</span>
-              <span className="text-white">FastAPI Role Protection Gateway</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Embedded Style Shields */}
+      <style>{`
+        .blaze-track-row {
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .blaze-track-row:hover {
+          border-color: rgba(168, 85, 247, 0.15) !important;
+          background-color: rgba(168, 85, 247, 0.01) !important;
+        }
+        .active-playing-row {
+          background-color: rgba(168, 85, 247, 0.04) !important;
+          border-color: rgba(168, 85, 247, 0.35) !important;
+        }
+        .fallback-vinyl-icon {
+          animation: spinVinyl 8s linear infinite;
+        }
+        @keyframes spinVinyl {
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
 
     </div>
   );

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { AudioProvider } from './context/AudioContext';
 import { Storefront } from './components/Storefront';
@@ -15,9 +15,11 @@ import { ServicesView } from './components/ServicesView';
 import { ContactView } from './components/ContactView';
 import { IndustryPortalView } from './components/IndustryPortalView';
 import { MilestonePlaqueModal } from './components/MilestonePlaqueModal';
+import { PayPalCheckout } from './components/PayPalCheckout';
 import UnifiedArtistPortal from './components/UnifiedArtistPortal';
 import RhythmArcade from './components/RhythmArcade';
 import { Track } from './types';
+import { supabase } from './services/supabaseClient';
 import { ShoppingCart, LayoutGrid, Radio, ShieldCheck, User } from 'lucide-react';
 
 function AppContent() {
@@ -35,6 +37,57 @@ function AppContent() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cloudStatus, setCloudStatus] = useState<'syncing' | 'connected' | 'disconnected'>('syncing');
+  
+  // SECURE PAYPAL OVERLAY MODAL FOR LICENSING ROW HOOKS
+  const [globalCheckoutActive, setGlobalCheckoutActive] = useState(false);
+  const [globalCheckoutItem, setGlobalCheckoutItem] = useState<{ title: string; price: string; fileUrl: string } | null>(null);
+
+  useEffect(() => {
+    // Connects license row ACQUIRE RIGHTS click events or external scripts directly to checkout
+    (window as any).initializeLicensePurchase = (title: string, price: string, untaggedAudioCloudUrl?: string) => {
+      console.log("[PayPal Handshake Engine] Initializing licensing purchase:", title, "Price:", price);
+      
+      // Fallback preview URL if none provided
+      const defaultPreview = "/static/converted/god_mode_tagged_preview.mp3";
+      
+      setGlobalCheckoutItem({
+        title: title,
+        price: price,
+        fileUrl: untaggedAudioCloudUrl || defaultPreview
+      });
+      setGlobalCheckoutActive(true);
+    };
+
+    return () => {
+      delete (window as any).initializeLicensePurchase;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    // REASON: This listens for any new sales in real-time and alerts you instantly
+    const salesChannel = supabase
+      .channel('table-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'marketplace_tracks', // Replace with your actual table name
+        },
+        (payload) => {
+          console.log('🚨 New Transaction Detected!', payload);
+          alert(`New Sale: ${(payload.new as any)?.title || 'A beat'} has been purchased!`);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(salesChannel);
+    };
+  }, []);
+
   const [profileImg, setProfileImg] = useState(() => {
     return localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
   });
@@ -90,24 +143,50 @@ function AppContent() {
     };
   }, []);
 
-  // Sync Cloud Health State on refresh
+  // Sync Cloud Health State on refresh and query real-time database state
   React.useEffect(() => {
-    async function verifyCloudConnectionState() {
+    async function loadIndependentTracksGrid() {
+      if (!supabase) {
+        console.warn("Supabase client not initialized yet - waiting for keys.");
+        setCloudStatus('disconnected');
+        return;
+      }
       try {
-        const pingCheck = await fetch('/api/cloud-check');
-        const data = await pingCheck.json();
-        if (data.success) {
-          console.log("⚡ Cloud Connection verified. Environment keys are live on Vercel.");
+        // This reads columns from your live table
+        const { data: tracks, error } = await supabase
+          .from('marketplace_tracks')
+          .select('*');
+
+        const statusBadge = document.querySelector('.hud-top-canopy'); // Targets your status badge component
+
+        if (!error) {
+          console.log("⚡ Solo data connection verified! System online.", tracks);
           setCloudStatus('connected');
+          // If your page layout features a visual cloud text status badge, update it here
+          const cloudBadge = document.getElementById('cloudStatusBadge');
+          if (cloudBadge) {
+            cloudBadge.textContent = "☁️ Cloud Online";
+            cloudBadge.className = "system-status-badge connected";
+          }
         } else {
+          console.error("Cloud database synchronization failed:", error);
           setCloudStatus('disconnected');
         }
-      } catch (connectionError) {
-        console.error("🚨 Cloud Connection Failed! Check your Vercel Environment Variables.", connectionError);
+      } catch (err) {
+        console.error("Cloud database synchronization failed:", err);
         setCloudStatus('disconnected');
       }
     }
-    verifyCloudConnectionState();
+
+    // Expose globally
+    (window as any).loadIndependentTracksGrid = loadIndependentTracksGrid;
+
+    // Execute connection on application load
+    loadIndependentTracksGrid();
+
+    return () => {
+      delete (window as any).loadIndependentTracksGrid;
+    };
   }, []);
 
   // Global Pop-up Error Blocker & Safe Image Source Protection
@@ -492,17 +571,17 @@ function AppContent() {
             {/* TOP RIGHT DASHBOARD CONTROLS */}
             <div className="top-utility-suite">
               {cloudStatus === 'syncing' && (
-                <span className="system-status-badge syncing" style={{ background: 'rgba(168, 85, 247, 0.08)', color: '#a855f7', border: '1px solid #a855f7' }}>
+                <span id="cloudStatusBadge" className="system-status-badge syncing" style={{ background: 'rgba(168, 85, 247, 0.08)', color: '#a855f7', border: '1px solid #a855f7' }}>
                   🔄 Syncing Cloud...
                 </span>
               )}
               {cloudStatus === 'connected' && (
-                <span className="system-status-badge connected">
+                <span id="cloudStatusBadge" className="system-status-badge connected">
                   ☁️ Cloud Online
                 </span>
               )}
               {cloudStatus === 'disconnected' && (
-                <span className="system-status-badge disconnected" title="Missing Cloudinary API Keys in Settings!">
+                <span id="cloudStatusBadge" className="system-status-badge disconnected" title="Missing Cloudinary API Keys in Settings!">
                   ⚠️ Cloud Disconnected
                 </span>
               )}
@@ -616,6 +695,61 @@ function AppContent() {
           plaqueData={activePlaqueData} 
           onClose={() => setActivePlaqueData(null)} 
         />
+      )}
+
+      {/* 2. ADD THIS PAYPAL MODAL CONTAINER INTO YOUR DASHBOARD REFS */}
+      {globalCheckoutActive && globalCheckoutItem && (
+        <div id="paypal-checkout-modal" className="payment-modal">
+          <div className="modal-surface-card animate-fadeIn">
+            <button 
+              id="closeModalBtn" 
+              className="close-modal-x" 
+              onClick={() => setGlobalCheckoutActive(false)}
+              title="Close modal"
+            >
+              ×
+            </button>
+            <h3 className="font-sans font-black text-lg tracking-wide uppercase text-white mb-2">Secure Licensing Checkout</h3>
+            <p id="modalTrackTitle" className="font-sans text-xs text-neutral-300 font-semibold mb-1">
+              Track: {globalCheckoutItem.title} (Exclusive License)
+            </p>
+            <p id="modalTrackPrice" className="font-mono text-base text-[#a855f7] font-black mt-1 mb-6">
+              Total: ${globalCheckoutItem.price}
+            </p>
+            
+            {/* PayPal's simulation or live buttons render zone */}
+            <div id="paypal-button-render-zone" className="space-y-3">
+              <PayPalCheckout 
+                amount={parseFloat(globalCheckoutItem.price)}
+                email="sandbox-buyer@vibevault.co"
+                payoutEmail="tyroxmadethis@gmail.com"
+                onSuccess={(orderId) => {
+                  console.log("Transaction secure and authorized. Order Reference ID: ", orderId);
+                  setGlobalCheckoutActive(false);
+
+                  // --- AUTOMATED FILE DELIVERY PIPELINE ---
+                  // REASON: Delivers high-fidelity files instantly to the artist's computer/phone
+                  const fileNameStr = globalCheckoutItem.title;
+                  const fileUrlStr = globalCheckoutItem.fileUrl;
+                  
+                  console.log(`Fulfilling distribution order. Downloading from cloud bucket node: ${fileUrlStr}`);
+                  
+                  const hiddenDownloadAnchor = document.createElement('a');
+                  hiddenDownloadAnchor.href = fileUrlStr;
+                  hiddenDownloadAnchor.target = '_blank';
+                  hiddenDownloadAnchor.download = `${fileNameStr.replace(/\s+/g, '_')}_Untagged_Master.wav`;
+                  
+                  document.body.appendChild(hiddenDownloadAnchor);
+                  hiddenDownloadAnchor.click();
+                  document.body.removeChild(hiddenDownloadAnchor);
+                }}
+                onCancel={() => {
+                  setGlobalCheckoutActive(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

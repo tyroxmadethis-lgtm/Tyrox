@@ -71,10 +71,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
   const [downloadEmail, setDownloadEmail] = useState('');
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
-  const [activePlatform, setActivePlatform] = useState<'native' | 'beatstars' | 'airbit'>('native');
-  const [beatstarsUrl, setBeatstarsUrl] = useState(() => {
-    return localStorage.getItem('tyrox_beatstars_url') || 'https://player.beatstars.com/?storeId=97136';
-  });
+  const [activePlatform, setActivePlatform] = useState<'native' | 'airbit'>('native');
   const [airbitUrl, setAirbitUrl] = useState(() => {
     return localStorage.getItem('tyrox_airbit_url') || 'https://airbit.com/widgets/html5?uid=12354&config=301389';
   });
@@ -514,51 +511,12 @@ export const Storefront: React.FC<StorefrontProps> = ({
           ☄️ TYROX Native Store
         </button>
         <button 
-          onClick={() => setActivePlatform('beatstars')}
-          className={`nav-toggle-btn ${activePlatform === 'beatstars' ? 'active-toggle animate-pulse' : ''}`}
-        >
-          🔥 BeatStars Player
-        </button>
-        <button 
           onClick={() => setActivePlatform('airbit')}
           className={`nav-toggle-btn ${activePlatform === 'airbit' ? 'active-toggle animate-pulse' : ''}`}
         >
           💼 Airbit Player
         </button>
       </section>
-
-      {activePlatform === 'beatstars' && (
-        <div id="beatstars-frame-wrapper" className="storefront-viewport mb-12 animate-fadeIn text-left">
-          <div className="flex items-center justify-between mb-4 bg-neutral-950/60 border border-neutral-900 rounded-xl p-4">
-            <div>
-              <h3 className="text-sm font-sans font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
-                <span className="text-red-500 font-bold">🔥</span> BeatStars Blaze Integration
-              </h3>
-              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest mt-0.5">
-                Powered by official HTML5 Blaze Player framework configuration
-              </p>
-            </div>
-            <button 
-              onClick={() => {
-                const newUrl = prompt("Enter your custom BeatStars Player/Store URL:", beatstarsUrl);
-                if (newUrl) {
-                  localStorage.setItem('tyrox_beatstars_url', newUrl);
-                  setBeatstarsUrl(newUrl);
-                }
-              }}
-              className="px-3 py-1 bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-[9.5px] font-mono text-neutral-400 rounded uppercase cursor-pointer"
-            >
-              ⚙️ Config URL
-            </button>
-          </div>
-          <iframe 
-            src={beatstarsUrl} 
-            className="embedded-marketplace-audio-core w-full rounded-2xl"
-            style={{ border: 0, height: '780px' }}
-            allow="autoplay; encrypted-media"
-          />
-        </div>
-      )}
 
       {activePlatform === 'airbit' && (
         <div id="airbit-frame-wrapper" className="storefront-viewport mb-12 animate-fadeIn text-left">

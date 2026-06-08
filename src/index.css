@@ -1253,6 +1253,35 @@
     100% { box-shadow: 0 0 15px rgba(255, 0, 85, 0.5); }
 }
 
+/* SECURE PAYMENT MODAL WRAPPER LAYER */
+.payment-modal {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(2, 2, 4, 0.85); backdrop-filter: blur(8px);
+    display: flex; justify-content: center; align-items: center; z-index: 99999;
+}
+
+.payment-modal.hidden-display {
+    display: none !important;
+}
+
+.modal-surface-card {
+    background-color: #10111a; border: 1px solid #222222;
+    border-radius: 12px; padding: 30px; width: 100%; max-width: 420px;
+    position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.6); box-sizing: border-box;
+    color: #ffffff;
+    text-align: left;
+}
+
+.modal-surface-card h3 { margin: 0 0 6px 0; font-size: 20px; font-weight: 800; color: #ffffff; }
+#modalTrackTitle { margin: 0; font-size: 14px; color: #ffffff; font-weight: 600; text-align: left; }
+#modalTrackPrice { margin: 6px 0 24px 0; font-size: 18px; color: #a55eea; font-weight: 800; text-align: left; }
+
+.close-modal-x {
+    position: absolute; top: 15px; right: 15px; background: none; border: none;
+    color: #999999; font-size: 24px; cursor: pointer;
+}
+.close-modal-x:hover { color: #ffffff; }
+
 
 
 

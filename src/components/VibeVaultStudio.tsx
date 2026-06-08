@@ -1130,6 +1130,58 @@ export const VibeVaultStudio: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* LIVE INTEGRATION PLAYGROUND */}
+            <div className="p-5 rounded-xl bg-neutral-950 border border-neutral-900 space-y-4 max-w-xl">
+              <div className="flex items-center gap-2 pb-2 border-b border-neutral-900">
+                <span className="p-1.5 bg-purple-500/10 text-purple-400 rounded">
+                  <Shield size={14} />
+                </span>
+                <h3 className="font-sans font-bold text-xs uppercase text-neutral-300 tracking-wider">Live Integration Playground</h3>
+              </div>
+              <p className="text-[11px] text-neutral-400 leading-normal font-sans">
+                Demo of an industry-standard track row item configured with your bespoke PayPal checkout function. Clicking the button executes: <code className="font-mono bg-neutral-900 px-1 py-0.5 text-[#a855f7] rounded">initializeLicensePurchase('God Mode', '149.99', 'YOUR_SUPABASE_RAW_UNTAGGED_WAV_FILE_URL')</code>.
+              </p>
+
+              {/* TRACK ROW EXAMPLE IN PLAYGROUND */}
+              <div className="bg-neutral-900/30 border border-neutral-900 rounded-xl p-2 space-y-3 font-sans">
+                <div className="blaze-track-row flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-3 bg-neutral-950/80 border border-neutral-850 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      className="row-play-circle w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center font-bold text-xs transition active:scale-90"
+                      onClick={() => addNotification("PREVIEW // Streaming preview of 'God Mode'")}
+                    >
+                      ▶
+                    </button>
+                    <div className="meta-cell text-left">
+                      <span className="beat-name block font-sans font-black text-white text-xs tracking-wide">God Mode</span>
+                      <span className="file-spec-tag block font-mono text-[9.5px] text-neutral-500">Produced by Tyrox</span>
+                    </div>
+                  </div>
+                  <span className="stat-cell font-mono text-[10.5px] text-neutral-350">140 BPM</span>
+                  <div className="action-cell">
+                    {/* ACQUIRE RIGHTS button linking to global PayPal handler */}
+                    <button 
+                      className="blaze-buy-btn px-4 py-1.5 bg-white hover:bg-purple-600 hover:text-white text-black text-[10px] font-extrabold uppercase rounded-md tracking-wider transition active:scale-95"
+                      onClick={() => {
+                        if ((window as any).initializeLicensePurchase) {
+                          (window as any).initializeLicensePurchase(
+                            'God Mode', 
+                            '149.99', 
+                            'https://storage.googleapis.com/unlimited-beats/god_mode_master.wav'
+                          );
+                        } else {
+                          addNotification("ERROR // Global purchase handler missing from window context");
+                        }
+                      }}
+                    >
+                      ACQUIRE RIGHTS
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 

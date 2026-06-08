@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "../context/StoreContext";
+import { supabase, SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY } from "../services/supabaseClient";
 import {
   Sparkles,
   Loader2,
@@ -62,6 +63,37 @@ export const CloudTriggers: React.FC = () => {
   const [activeRepoFile, setActiveRepoFile] = useState<string>("main.py");
 
   const [syncTrigger, setSyncTrigger] = useState(0);
+
+  const [supabaseState, setSupabaseState] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [supabaseErrorMsg, setSupabaseErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function testCloudStreamState() {
+      if (!supabase) {
+        setSupabaseState('disconnected');
+        setSupabaseErrorMsg("No credentials set inside process.env or window.env. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY first.");
+        return;
+      }
+      try {
+        setSupabaseState('checking');
+        const { data, error } = await supabase.storage.getBucket('unlimited-beats');
+        if (error) {
+          console.error("🚨 Connection dropped! Re-verify Vercel environment keys.", error);
+          setSupabaseState('disconnected');
+          setSupabaseErrorMsg(error.message);
+        } else {
+          console.log("☁️ Supabase Cloud Storage connection successfully verified on Vercel!");
+          setSupabaseState('connected');
+          setSupabaseErrorMsg(null);
+        }
+      } catch (err: any) {
+        console.error("Supabase verification failed:", err);
+        setSupabaseState('disconnected');
+        setSupabaseErrorMsg(err?.message || String(err));
+      }
+    }
+    testCloudStreamState();
+  }, []);
 
   React.useEffect(() => {
     const handleUpdate = () => {
@@ -2159,11 +2191,45 @@ async def track_paid_purchase(track_name: str, license_type: str, buyer_email: s
                 This workspace maps your high-speed, custom-engineered <code className="text-purple-300 font-mono">tyrox-storefront</code>. Built thoroughly from scratch with zero boilerplate loops, zero bloated scripts—optimized exclusively for robust beat licensing and pre-cleared RAP label deliveries.
               </p>
             </div>
-            <div className="bg-neutral-950 rounded-xl border border-neutral-850 px-4 py-2.5 flex items-center gap-3">
-              <Globe size={18} className="text-emerald-400 shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
-              <div className="font-mono text-[9px]">
-                <span className="text-neutral-500 uppercase font-black block">Status Gateway</span>
-                <span className="text-emerald-400 font-bold">FastAPI Routing Loaded</span>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="bg-neutral-950 rounded-xl border border-neutral-850 px-4 py-2.5 flex items-center gap-3">
+                <Globe size={18} className="text-emerald-400 shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
+                <div className="font-mono text-[9px]">
+                  <span className="text-neutral-500 uppercase font-black block">Status Gateway</span>
+                  <span className="text-emerald-400 font-bold">FastAPI Routing Loaded</span>
+                </div>
+              </div>
+
+              {/* Verified Supabase Cloud Storage feedback matching user diagnostic specifications */}
+              <div 
+                className="bg-neutral-950 rounded-xl border border-neutral-850 px-4 py-2.5 flex items-center gap-3 min-w-[210px] relative group"
+                title={supabaseErrorMsg || "Handshake verified securely across active environment variables."}
+              >
+                <div className="relative flex h-2.5 w-2.5 items-center justify-center">
+                  {supabaseState === 'connected' && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00ffcc] opacity-75"></span>
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                    supabaseState === 'connected' ? 'bg-[#00ffcc]' : 
+                    supabaseState === 'checking' ? 'bg-amber-400 animate-bounce' : 'bg-rose-500'
+                  }`} />
+                </div>
+                <div className="font-mono text-[9px] text-left">
+                  <span className="text-neutral-500 uppercase font-black block">Cloud Stream Node</span>
+                  <span className={`font-bold transition-all duration-300 ${
+                    supabaseState === 'connected' ? 'text-[#00ffcc]' : 
+                    supabaseState === 'checking' ? 'text-amber-400' : 'text-rose-500'
+                  }`}>
+                    {supabaseState === 'connected' ? '☁️ Cloud Online' : 
+                     supabaseState === 'checking' ? '⚡ Handshaking...' : '⚠️ Cloud Disconnected'}
+                  </span>
+                </div>
+
+                {supabaseState === 'disconnected' && (
+                  <div className="absolute top-11 left-0 z-30 hidden group-hover:block w-64 p-2 bg-neutral-950 border border-neutral-900 rounded shadow-xl text-[8px] font-mono text-rose-450 leading-relaxed">
+                    {supabaseErrorMsg}
+                  </div>
+                )}
               </div>
             </div>
           </div>

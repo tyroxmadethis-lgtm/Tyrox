@@ -292,14 +292,20 @@ async function startServer() {
     const cloudinaryApiKey = process.env.CLOUDINARY_API_KEY;
     const cloudinaryCloudName = process.env.CLOUDINARY_CLOUD_NAME;
 
-    const isConfigured = !!(cloudinarySecret && cloudinaryApiKey && cloudinaryCloudName);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+    const hasCloudinary = !!(cloudinarySecret && cloudinaryApiKey && cloudinaryCloudName);
+    const hasSupabase = !!(supabaseUrl && supabaseKey);
+    const isConfigured = hasCloudinary || hasSupabase;
     
     return res.json({
       success: isConfigured,
       status: isConfigured ? "online" : "disconnected",
-      provider: "Cloudinary",
+      provider: hasCloudinary ? "Cloudinary" : (hasSupabase ? "Supabase" : "None"),
       config: {
-        has_cloudinary: isConfigured,
+        has_cloudinary: hasCloudinary,
+        has_supabase: hasSupabase,
         has_s3: !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY),
         has_blob: !!process.env.BLOB_READ_WRITE_TOKEN
       }
