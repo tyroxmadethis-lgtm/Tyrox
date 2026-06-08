@@ -312,6 +312,13 @@ async function startServer() {
     });
   });
 
+  app.get("/api/supabase-config", (req, res) => {
+    return res.json({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "",
+      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ""
+    });
+  });
+
   // API Router - Secure Cloudinary Direct Uplink Signing Endpoint (Aliases to previous route)
   app.post("/api/upload/sign", async (req, res) => {
     try {

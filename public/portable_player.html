@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tyrox Native Independent Engine</title>
+    <!-- Supabase CDN Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --core-black: #050508;
@@ -91,6 +93,12 @@
             display: grid; grid-template-columns: 40px 3fr 1fr 1fr; align-items: center;
             padding: 14px 20px; background: var(--core-black); border-radius: 6px; border: 1px solid var(--border-grey);
             margin-bottom: 4px;
+            transition: all 0.2s ease;
+        }
+        .blaze-track-row.active-playing-row {
+            border-color: var(--neon-pink);
+            background: rgba(255, 0, 85, 0.08);
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.15);
         }
         .blaze-play-trigger { background: none; border: none; color: white; font-size: 16px; cursor: pointer; text-align: left; }
         .meta-cell { display: flex; flex-direction: column; }
@@ -128,6 +136,109 @@
         .utility-panel { display: flex; align-items: center; gap: 10px; width: 15%; justify-content: flex-end; }
         .volume-icon { font-size: 13px; color: var(--text-dim); }
         #volumeSlider { width: 75px; accent-color: var(--neon-pink); cursor: pointer; }
+
+        /* PORTAL RESPONSIVE GRID LAYOUT */
+        .portal-grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        @media (min-width: 1024px) {
+            .portal-grid-layout {
+                grid-template-columns: 1.1fr 0.9fr;
+                align-items: start;
+            }
+        }
+
+        /* NATIVE CONSOLE PUBLISH SUITE STYLES */
+        .settings-card {
+            background: var(--panel-dark);
+            border: 1px solid var(--border-grey);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        .settings-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 19px;
+            font-weight: 800;
+            color: var(--text-white);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .settings-subtext {
+            margin: 0 0 24px 0;
+            font-size: 13px;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-group label {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--text-white);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="number"] {
+            background: var(--core-black);
+            border: 1px solid var(--border-grey);
+            border-radius: 6px;
+            padding: 12px;
+            color: var(--text-white);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .form-group input[type="text"]:focus,
+        .form-group input[type="number"]:focus {
+            border-color: var(--neon-pink);
+        }
+        .form-group input[type="file"] {
+            font-size: 13px;
+            padding: 8px 0;
+            color: var(--text-dim);
+        }
+        .save-changes-cta {
+            background: var(--neon-pink);
+            color: white;
+            border: none;
+            padding: 14px;
+            font-weight: 800;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13.5px;
+            width: 100%;
+            transition: opacity 0.15s, transform 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 0.75px;
+        }
+        .save-changes-cta:hover {
+            opacity: 0.9;
+        }
+        .save-changes-cta:active {
+            transform: scale(0.98);
+        }
+        .status-console-log {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(0, 255, 102, 0.1);
+            border: 1px solid var(--success-green);
+            color: var(--success-green);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            text-align: center;
+        }
 
         .hidden-display { display: none !important; }
     </style>
@@ -173,29 +284,65 @@
 
             <!-- TRAP CONTROL CENTER WORKSPACE -->
             <section class="storefront-content-frame">
-                
-                <!-- NATIVE UPLOAD CONTROL STATION -->
-                <div class="upload-control-station">
-                    <div class="upload-drop-zone" id="dropZone" onclick="document.getElementById('beatFileInput').click()">
-                        <div class="upload-icon-graphic">📤</div>
-                        <h4>Drag & Drop Your Trap Beat Here</h4>
-                        <p>Supports high-fidelity MP3, WAV, or AIFF audio tracks</p>
-                        <button class="browse-files-btn">Browse Local Files</button>
-                        <input type="file" id="beatFileInput" accept="audio/*" hidden>
+                <div class="portal-grid-layout">
+                    
+                    <!-- COLUMN 1: NATIVE CONSOLE PUBLISH SUITE -->
+                    <div class="settings-card">
+                        <h3>🔒 Solo Upload Station</h3>
+                        <p class="settings-subtext">Publish original trap files and custom graphics straight to your database.</p>
+
+                        <div class="form-group">
+                            <label>Beat Track Title</label>
+                            <input type="text" id="beatTitle" placeholder="e.g., Got lucky Mix">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Tempo (BPM)</label>
+                            <input type="number" id="beatBpm" value="159">
+                        </div>
+
+                        <!-- AUDIO TRANSMISSION LINK -->
+                        <div class="form-group">
+                            <label>Select Audio Asset (.mp3 / .wav)</label>
+                            <input type="file" id="beatFile" accept="audio/*" style="color: #62627a;">
+                        </div>
+
+                        <!-- NEW GRAPHIC TRANSMISSION LINK -->
+                        <div class="form-group">
+                            <label>Select Cover Art Graphic (.jpg / .png)</label>
+                            <input type="file" id="coverImageFile" accept="image/*" style="color: #62627a;">
+                        </div>
+
+                        <button class="save-changes-cta" id="publishBtn">Publish to Vercel Live Store</button>
+                        <div id="statusConsole" class="status-console-log hidden-display">System processing active...</div>
                     </div>
-                </div>
 
-                <!-- DYNAMIC LIVE PLAYBACK CATALOG -->
-                <div class="custom-blaze-container hidden-display" id="catalogDisplayContainer">
-                    <div class="blaze-store-header">
-                        <h3>⚡ Active Studio Playlist</h3>
-                        <span class="status-badge">ENGINE ONLINE</span>
+                    <!-- COLUMN 2: LOCAL STUDIO INGEST & DIGITAL TRACK VIEWORK -->
+                    <div>
+                        <!-- NATIVE UPLOAD CONTROL STATION -->
+                        <div class="upload-control-station">
+                            <div class="upload-drop-zone" id="dropZone" onclick="document.getElementById('beatFileInput').click()">
+                                <div class="upload-icon-graphic">📤</div>
+                                <h4>Drag & Drop Your Trap Beat Here</h4>
+                                <p>Supports high-fidelity MP3, WAV, or AIFF audio tracks for local session playback</p>
+                                <button class="browse-files-btn">Browse Local Files</button>
+                                <input type="file" id="beatFileInput" accept="audio/*" hidden>
+                            </div>
+                        </div>
+
+                        <!-- DYNAMIC LIVE PLAYBACK CATALOG -->
+                        <div class="custom-blaze-container hidden-display" id="catalogDisplayContainer">
+                            <div class="blaze-store-header">
+                                <h3>⚡ Active Studio Playlist</h3>
+                                <span class="status-badge">ENGINE ONLINE</span>
+                            </div>
+
+                            <!-- DYNAMIC RECORD LINES ARE PRINTED HERE NATIVELY BY JAVASCRIPT -->
+                            <div class="blaze-tracks-grid" id="dynamicTrackQueue"></div>
+                        </div>
                     </div>
 
-                    <!-- DYNAMIC RECORD LINES ARE PRINTED HERE NATIVELY BY JAVASCRIPT -->
-                    <div class="blaze-tracks-grid" id="dynamicTrackQueue"></div>
                 </div>
-
             </section>
         </main>
 
@@ -241,36 +388,302 @@
             const sidebarMenu = document.getElementById('sidebarMenu');
             const sidebarToggle = document.getElementById('sidebarToggle');
 
-            sidebarToggle.addEventListener('click', () => {
-                sidebarMenu.classList.toggle('minimized');
-                sidebarToggle.textContent = sidebarMenu.classList.contains('minimized') ? '▶' : '◀';
-            });
+            if (sidebarToggle && sidebarMenu) {
+                sidebarToggle.addEventListener('click', () => {
+                    sidebarMenu.classList.toggle('minimized');
+                    sidebarToggle.textContent = sidebarMenu.classList.contains('minimized') ? '▶' : '◀';
+                });
+            }
 
-            // --- HARDWARE DECK AUDIO INTERACTION POOLS ---
-            const audioNode = document.getElementById('nativeAudioEngine');
+            // --- 1. DIRECT SECURE CLOUD HANDSHAKE CONFIGURATION ---
+            // REASON: Configurable cloud credentials with dynamic safe server-side config recovery fallback
+            let SUPABASE_PROJECT_URL = "https://supabase.co";
+            let SUPABASE_ANON_KEY = "PASTE_YOUR_COPIED_ANON_PUBLIC_KEY_HERE"; // Paste your long anon public key here
+
+            // DOM Audio Deck References
+            const audioEngine = document.getElementById('nativeAudioEngine');
             const masterPlayBtn = document.getElementById('deckMasterPlayBtn');
+            const deckTrackTitle = document.getElementById('deckTrackTitle');
+            const deckProducerName = document.getElementById('deckProducerName');
+            const deckArtBox = document.getElementById('deckArtBox');
+            
             const timelineRail = document.getElementById('timelineRail');
             const timelineFill = document.getElementById('timelineFill');
             const timeCurrent = document.getElementById('timeCurrent');
             const timeTotal = document.getElementById('timeTotal');
             const volumeSlider = document.getElementById('volumeSlider');
-            
-            const deckTrackTitle = document.getElementById('deckTrackTitle');
-            const deckProducerName = document.getElementById('deckProducerName');
-            const deckArtBox = document.getElementById('deckArtBox');
 
-            const beatFileInput = document.getElementById('beatFileInput');
+            // Grid Canvas Targets
             const dynamicTrackQueue = document.getElementById('dynamicTrackQueue');
             const catalogDisplayContainer = document.getElementById('catalogDisplayContainer');
+            const liveMixesCanvas = document.getElementById('liveMixesCanvas');
+            const liveTrendiestCanvas = document.getElementById('liveTrendiestCanvas');
+            const beatFileInput = document.getElementById('beatFileInput');
 
-            let uploadedPlaylist = [];
+            let globalAudioPlaylistArray = [];
             let activeTrackIndex = -1;
 
-            // --- LIVE LOCAL FILE INTERCEPTION PIPELINE ---
-            beatFileInput.addEventListener('change', (event) => {
-                const targetedFiles = Array.from(event.target.files);
-                processIncomingAudioTracks(targetedFiles);
-            });
+            // --- 2. LIVE DATABASE CATALOG RECOVERY LOOP & DIRECT APP-INTEGRATION ---
+            // REASON: Wipes out placeholder items and renders pristine records loaded live from Supabase.
+            async function streamRealBeatsNatively() {
+                try {
+                    // Pull real configurations dynamically if default credentials placeholders remain unchanged
+                    if (SUPABASE_PROJECT_URL === "https://supabase.co" || SUPABASE_ANON_KEY === "PASTE_YOUR_COPIED_ANON_PUBLIC_KEY_HERE") {
+                        try {
+                            const configRes = await fetch('/api/supabase-config');
+                            const configData = await configRes.json();
+                            if (configData.supabaseUrl && configData.supabaseKey) {
+                                SUPABASE_PROJECT_URL = configData.supabaseUrl;
+                                SUPABASE_ANON_KEY = configData.supabaseKey;
+                            }
+                        } catch (e) {
+                            console.warn("[Cloud Handshake] Config server fetch delayed:", e);
+                        }
+                    }
+
+                    if (!window.supabase) {
+                        console.warn("[Supabase Core] Javascript library unavailable.");
+                        return;
+                    }
+
+                    const supabase = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
+                    const { data: databaseRecords, error } = await supabase
+                        .from('marketplace_tracks')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+
+                    globalAudioPlaylistArray = databaseRecords || [];
+
+                    // Guard rails: tell the user is ready to listen
+                    if (globalAudioPlaylistArray.length === 0) {
+                        const emptyMessage = `<p style="color:#62627a; text-align:center; padding:30px; width:100%;">Your store is ready. Open your private upload window to publish your original beats.</p>`;
+                        if (dynamicTrackQueue) dynamicTrackQueue.innerHTML = emptyMessage;
+                        if (liveMixesCanvas) liveMixesCanvas.innerHTML = emptyMessage;
+                        if (liveTrendiestCanvas) liveTrendiestCanvas.innerHTML = emptyMessage;
+                        return;
+                    }
+
+                    // A. UPDATE THE MAIN PLATFORM PLAYLIST TRACK ROW ENTRIES (PORTABLE WIDGET QUEUE)
+                    if (dynamicTrackQueue) {
+                        dynamicTrackQueue.innerHTML = "";
+                        globalAudioPlaylistArray.forEach((track, idx) => {
+                            const row = document.createElement('div');
+                            row.className = 'blaze-track-row';
+                            row.setAttribute('data-playlist-index', idx);
+                            row.setAttribute('id', `studio-track-row-${idx}`);
+                            row.innerHTML = `
+                                <button class="blaze-play-trigger" data-action="play-toggle" data-index="${idx}">▶</button>
+                                <div class="meta-cell">
+                                    <span class="beat-name">${track.title || "Untitled Beat"}</span>
+                                    <span class="file-spec-tag">Cloud Vault Asset</span>
+                                </div>
+                                <span class="stat-cell" style="color: var(--neon-purple); font-weight:600;">CLOUD</span>
+                                <span class="stat-cell">${track.bpm || '140'} BPM</span>
+                            `;
+                            dynamicTrackQueue.appendChild(row);
+                        });
+                    }
+
+                    // B. UPDATE THE VISUAL PRODUCT GRID CARDS (YOUR MIXES & TRENDING BEATS IF CONTAINERS ARE DETECTED)
+                    const renderGridCards = (canvasContainer) => {
+                        if (!canvasContainer) return;
+                        canvasContainer.innerHTML = "";
+                        globalAudioPlaylistArray.forEach((track, idx) => {
+                            const card = document.createElement('div');
+                            card.className = 'mix-card-item';
+                            
+                            // SWAPS OLD STATIC GRAPHICS FOR THE CUSTOM IMAGE LINK ROW RETRIEVED STRAIGHT FROM YOUR ACTIVE SUPABASE BUCKET
+                            const fallbackArtwork = track.cover_art_url || track.image_url || track.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop';
+                            
+                            card.innerHTML = `
+                                <div class="composite-artwork-frame single-image-cover" onclick="initializeDirectAudioStream(${idx})">
+                                    <img src="${fallbackArtwork}" alt="${track.title || 'Track'} Cover Art" style="width:100%; height:100%; object-fit:cover; border-radius:8px;" referrerpolicy="no-referrer">
+                                </div>
+                                <span class="mix-card-title" style="margin-top:8px; font-weight:700;">${track.title || 'Untitled'}</span>
+                                <span class="stream-badge-ui" style="font-size:12px; color:#62627a;">🔥 ${track.bpm || '140'} BPM</span>
+                            `;
+                            canvasContainer.appendChild(card);
+                        });
+                    };
+
+                    renderGridCards(liveMixesCanvas);
+                    renderGridCards(liveTrendiestCanvas);
+
+                    // Unhide catalog container box if items exist
+                    if (catalogDisplayContainer && globalAudioPlaylistArray.length > 0) {
+                        catalogDisplayContainer.classList.remove('hidden-display');
+                    }
+
+                    console.log("⚡ Success! Dynamic Cloud Handshake synced with database records. Count:", globalAudioPlaylistArray.length);
+
+                } catch (connectionError) {
+                    console.error("Cloud database synchronization failure:", connectionError);
+                }
+            }
+
+            // --- 3. HARDWARE MEDIA INTERCEPTOR CODES & LOCAL DRAG-DROP HANDLERS ---
+            if (dynamicTrackQueue) {
+                dynamicTrackQueue.addEventListener('click', (event) => {
+                    const playTrigger = event.target.closest('[data-action="play-toggle"]') || event.target.closest('.blaze-play-trigger');
+                    if (!playTrigger) return;
+
+                    const rowParent = playTrigger.closest('.blaze-track-row');
+                    const targetIndex = rowParent ? parseInt(rowParent.getAttribute('data-playlist-index')) : parseInt(playTrigger.getAttribute('data-index'));
+                    
+                    initializeDirectAudioStream(targetIndex);
+                });
+            }
+
+            window.initializeDirectAudioStream = (index) => {
+                if (index < 0 || index >= globalAudioPlaylistArray.length) return;
+                const targetTrack = globalAudioPlaylistArray[index];
+
+                if (activeTrackIndex === index) {
+                    toggleMasterAudioDeck();
+                } else {
+                    clearVisualHighlightStates();
+                    activeTrackIndex = index;
+
+                    // Route your original cloud audio file link straight to the browser audio core
+                    const streamUrl = targetTrack.streamUrl || targetTrack.stream_url || targetTrack.audioUrl || "/static/converted/god_mode_tagged_preview.mp3";
+                    audioEngine.src = streamUrl;
+                    deckTrackTitle.textContent = targetTrack.title || "Untitled Beat";
+                    deckProducerName.textContent = "by tyrox made this";
+                    if (deckArtBox) deckArtBox.textContent = "🔥";
+
+                    audioEngine.play().catch(err => console.warn("iPad tablet device holding audio playback handshake:", err));
+                    synchronizeUILayoutStates(true);
+                }
+            };
+
+            function toggleMasterAudioDeck() {
+                if (activeTrackIndex === -1 && globalAudioPlaylistArray.length > 0) {
+                    initializeDirectAudioStream(0);
+                    return;
+                }
+                if (activeTrackIndex === -1) return;
+                
+                if (audioEngine.paused) {
+                    audioEngine.play().catch(e => console.warn("Audio resume blocked until interaction:", e));
+                    synchronizeUILayoutStates(true);
+                } else {
+                    audioEngine.pause();
+                    synchronizeUILayoutStates(false);
+                }
+            }
+
+            if (masterPlayBtn) {
+                masterPlayBtn.addEventListener('click', toggleMasterAudioDeck);
+            }
+
+            function synchronizeUILayoutStates(isPlaying) {
+                if (masterPlayBtn) masterPlayBtn.textContent = isPlaying ? '⏸' : '▶';
+                
+                globalAudioPlaylistArray.forEach((_, idx) => {
+                    const row = document.getElementById(`studio-track-row-${idx}`) || document.getElementById(`live-track-row-${idx}`);
+                    if (row) {
+                        const rowBtn = row.querySelector('[data-action="play-toggle"]') || row.querySelector('.blaze-play-trigger');
+                        if (rowBtn) {
+                            rowBtn.textContent = (idx === activeTrackIndex && isPlaying) ? '⏸' : '▶';
+                        }
+                        if (idx === activeTrackIndex && isPlaying) {
+                            row.classList.add('active-playing-row');
+                        } else {
+                            row.classList.remove('active-playing-row');
+                        }
+                    }
+                });
+            }
+
+            function clearVisualHighlightStates() {
+                globalAudioPlaylistArray.forEach((_, idx) => {
+                    const row = document.getElementById(`studio-track-row-${idx}`) || document.getElementById(`live-track-row-${idx}`);
+                    if (row) {
+                        row.classList.remove('active-playing-row');
+                        const rowBtn = row.querySelector('[data-action="play-toggle"]') || row.querySelector('.blaze-play-trigger');
+                        if (rowBtn) rowBtn.textContent = '▶';
+                    }
+                });
+            }
+
+            // Fallback for visual handlers
+            const clearAllVisualRowHighlightStates = clearVisualHighlightStates;
+
+            // --- 4. STREAM TRACK TIMELINE UPDATE AND VOLUME RAILS ---
+            if (audioEngine) {
+                audioEngine.addEventListener('timeupdate', () => {
+                    if (audioEngine.duration) {
+                        const percentage = (audioEngine.currentTime / audioEngine.duration) * 100;
+                        if (timelineFill) timelineFill.style.width = `${percentage}%`;
+                        if (timeCurrent) timeCurrent.textContent = formatTimeLabels(audioEngine.currentTime);
+                        if (timeTotal) timeTotal.textContent = formatTimeLabels(audioEngine.duration);
+                    }
+                });
+
+                audioEngine.addEventListener('ended', () => {
+                    if (activeTrackIndex < globalAudioPlaylistArray.length - 1) {
+                        initializeDirectAudioStream(activeTrackIndex + 1);
+                    } else {
+                        clearVisualHighlightStates();
+                        activeTrackIndex = -1;
+                        if (masterPlayBtn) masterPlayBtn.textContent = '▶';
+                    }
+                });
+            }
+
+            if (timelineRail && audioEngine) {
+                timelineRail.addEventListener('click', (e) => {
+                    if (audioEngine.duration) {
+                        const clickPositionX = e.offsetX;
+                        const totalWidth = timelineRail.clientWidth;
+                        if (totalWidth > 0) {
+                            audioEngine.currentTime = (clickPositionX / totalWidth) * audioEngine.duration;
+                        }
+                    }
+                });
+            }
+
+            if (volumeSlider && audioEngine) {
+                volumeSlider.addEventListener('input', (e) => { 
+                    audioEngine.volume = parseFloat(e.target.value); 
+                });
+            }
+
+            function formatTimeLabels(seconds) {
+                if (isNaN(seconds)) return "0:00";
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+
+            // Bind dashboard Next/Prev Buttons
+            const deckNextBtn = document.getElementById('deckNextBtn');
+            const deckPrevBtn = document.getElementById('deckPrevBtn');
+
+            if (deckNextBtn) {
+                deckNextBtn.addEventListener('click', () => {
+                    if (activeTrackIndex < globalAudioPlaylistArray.length - 1) {
+                        initializeDirectAudioStream(activeTrackIndex + 1);
+                    }
+                });
+            }
+            if (deckPrevBtn) {
+                deckPrevBtn.addEventListener('click', () => {
+                    if (activeTrackIndex > 0) {
+                        initializeDirectAudioStream(activeTrackIndex - 1);
+                    }
+                });
+            }
+
+            // --- 5. SUPPORT LOCAL HARD-DRIVE INGEST ACTION ---
+            if (beatFileInput) {
+                beatFileInput.addEventListener('change', (event) => {
+                    const targetedFiles = Array.from(event.target.files);
+                    processIncomingLocalAudioTracks(targetedFiles);
+                });
+            }
 
             const dropZone = document.getElementById('dropZone');
             if (dropZone) {
@@ -285,162 +698,209 @@
                     e.preventDefault();
                     dropZone.style.borderColor = '#1f1f33';
                     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                        processIncomingAudioTracks(Array.from(e.dataTransfer.files));
+                        processIncomingLocalAudioTracks(Array.from(e.dataTransfer.files));
                     }
                 });
             }
 
-            function processIncomingAudioTracks(fileArray) {
+            function processIncomingLocalAudioTracks(fileArray) {
                 fileArray.forEach(file => {
                     if (!file.type.startsWith('audio/')) return;
 
-                    // Converts the local hard drive binary object into an encrypted data stream address
                     const transientBlobStreamUrl = URL.createObjectURL(file);
-                    
-                    const structuredTrackMetadata = {
-                        title: file.name.replace(/\.[^/.]+$/, ""), // Strip file extensions (.mp3 / .wav) from visual text
-                        size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-                        streamUrl: transientBlobStreamUrl
+                    const localTrack = {
+                        title: file.name.replace(/\.[^/.]+$/, ""),
+                        bpm: 140,
+                        streamUrl: transientBlobStreamUrl,
+                        isCloud: false,
+                        cover_art_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop',
+                        size: (file.size / (1024 * 1024)).toFixed(2) + " MB"
                     };
 
-                    uploadedPlaylist.push(structuredTrackMetadata);
-                    renderUpdatedCatalogRow(structuredTrackMetadata, uploadedPlaylist.length - 1);
+                    globalAudioPlaylistArray.push(localTrack);
+                    const idx = globalAudioPlaylistArray.length - 1;
+
+                    if (dynamicTrackQueue) {
+                        const row = document.createElement('div');
+                        row.className = 'blaze-track-row';
+                        row.setAttribute('data-playlist-index', idx);
+                        row.setAttribute('id', `studio-track-row-${idx}`);
+                        row.innerHTML = `
+                            <button class="blaze-play-trigger" data-action="play-toggle" data-index="${idx}">▶</button>
+                            <div class="meta-cell">
+                                <span class="beat-name">${localTrack.title}</span>
+                                <span class="file-spec-tag">Local Studio Asset</span>
+                            </div>
+                            <span class="stat-cell" style="color: var(--neon-pink); font-weight:600;">LOCAL</span>
+                            <span class="stat-cell">${localTrack.size}</span>
+                        `;
+                        dynamicTrackQueue.appendChild(row);
+                    }
                 });
 
-                // Unhide catalog container box if items exist
-                if (uploadedPlaylist.length > 0) {
+                if (catalogDisplayContainer && globalAudioPlaylistArray.length > 0) {
                     catalogDisplayContainer.classList.remove('hidden-display');
                 }
             }
 
-            // --- DYNAMIC INTERFACE ROW GENERATION ---
-            function renderUpdatedCatalogRow(trackData, explicitIndex) {
-                const rowMarkupElement = document.createElement('div');
-                rowMarkupElement.className = 'blaze-track-row';
-                rowMarkupElement.setAttribute('data-playlist-index', explicitIndex);
+            // Expose globally to sync with other layouts if nested or integrated
+            window.syncStorefrontWithLiveVault = streamRealBeatsNatively;
 
-                rowMarkupElement.innerHTML = `
-                    <button class="blaze-play-trigger" data-action="play">▶</button>
-                    <div class="meta-cell">
-                        <span class="beat-name">${trackData.title}</span>
-                        <span class="file-spec-tag">Local Studio Asset</span>
-                    </div>
-                    <span class="stat-cell" style="color: var(--neon-pink); font-weight:600;">TRAP CORE</span>
-                    <span class="stat-cell">${trackData.size}</span>
-                `;
-
-                dynamicTrackQueue.appendChild(rowMarkupElement);
-            }
-
-            // --- LIVE CATALOG LISTENER HANDLES ---
-            dynamicTrackQueue.addEventListener('click', (e) => {
-                const triggerButton = e.target.closest('[data-action="play"]');
-                if (!triggerButton) return;
-
-                const rowParent = triggerButton.closest('.blaze-track-row');
-                const targetIndex = parseInt(rowParent.getAttribute('data-playlist-index'));
-
-                if (activeTrackIndex === targetIndex) {
-                    togglePlaybackEngine();
-                } else {
-                    activateTargetTrack(targetIndex);
+            // Direct stream deck integration support as requested
+            window.loadTrackIntoBlazeDeck = (audioStreamUrl, trackTitle) => {
+                if (audioEngine && deckTrackTitle) {
+                    audioEngine.src = audioStreamUrl;
+                    deckTrackTitle.textContent = trackTitle;
+                    deckProducerName.textContent = "by tyrox made this";
+                    audioEngine.play().catch(e => console.log("Stream init delayed:", e));
                 }
-            });
+            };
 
-            function activateTargetTrack(index) {
-                if (index < 0 || index >= uploadedPlaylist.length) return;
-                activeTrackIndex = index;
-                
-                const selectedTrack = uploadedPlaylist[activeTrackIndex];
+            // --- 6. SOLO UPLOAD STATION ACTIONS & IMAGE COMPRESSION ENGINE ---
+            const publishBtn = document.getElementById('publishBtn');
+            const statusConsole = document.getElementById('statusConsole');
 
-                // Route the live memory blob link straight into the browser audio component
-                audioNode.src = selectedTrack.streamUrl;
-                deckTrackTitle.textContent = selectedTrack.title;
-                deckProducerName.textContent = "Tyrox Execution Studio";
-                deckArtBox.textContent = "🔥"; // Visual marker update
-
-                audioNode.play().catch(err => console.log("Blob audio initialization failure:", err));
-                synchronizeUIState(true);
+            function showConsoleFeedback(msg, isError = false) {
+                if (!statusConsole) return;
+                statusConsole.textContent = msg;
+                statusConsole.style.background = isError ? "rgba(255, 0, 85, 0.15)" : "rgba(0, 255, 102, 0.15)";
+                statusConsole.style.borderColor = isError ? "var(--neon-pink)" : "var(--success-green)";
+                statusConsole.style.color = isError ? "var(--neon-pink)" : "var(--success-green)";
+                statusConsole.classList.remove('hidden-display');
+                setTimeout(() => { statusConsole.classList.add('hidden-display'); }, 6000);
             }
 
-            masterPlayBtn.addEventListener('click', togglePlaybackEngine);
+            // COMPRESSION CORE ENGINE
+            // Enforces maximum web dimension constraints and downscales file data to 75% quality compressed binary blob
+            function compressGraphicFile(file) {
+                return new Promise((resolve) => {
+                    const fileReader = new FileReader();
+                    fileReader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            
+                            const MAX_WIDTH = 1200;
+                            let width = img.width;
+                            let height = img.height;
 
-            function togglePlaybackEngine() {
-                if (activeTrackIndex === -1 && uploadedPlaylist.length > 0) { activateTargetTrack(0); return; }
-                if (activeTrackIndex === -1) return;
+                            if (width > MAX_WIDTH) {
+                                height = Math.round((height * MAX_WIDTH) / width);
+                                width = MAX_WIDTH;
+                            }
 
-                if (audioNode.paused) {
-                    audioNode.play().catch(err => console.log("Audio play resume blocked:", err));
-                    synchronizeUIState(true);
-                } else {
-                    audioNode.pause();
-                    synchronizeUIState(false);
-                }
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+
+                            canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.75);
+                        };
+                        img.src = e.target.result;
+                    };
+                    fileReader.readAsDataURL(file);
+                });
             }
 
-            function synchronizeUIState(isPlaying) {
-                masterPlayBtn.textContent = isPlaying ? '⏸' : '▶';
-                const rows = document.querySelectorAll('.blaze-track-row');
-                
-                rows.forEach((row, idx) => {
-                    const btn = row.querySelector('.blaze-play-trigger');
-                    if (btn) {
-                        btn.textContent = (idx === activeTrackIndex && isPlaying) ? '⏸' : '▶';
+            if (publishBtn) {
+                publishBtn.addEventListener('click', async () => {
+                    const audioInput = document.getElementById('beatFile')?.files[0];
+                    const imageInput = document.getElementById('coverImageFile')?.files[0];
+                    const titleInput = document.getElementById('beatTitle')?.value;
+                    const bpmInput = document.getElementById('beatBpm')?.value;
+
+                    if (!audioInput || !imageInput || !titleInput) {
+                        return showConsoleFeedback("Missing required fields: Title, Audio File, and Cover Art are mandatory.", true);
+                    }
+
+                    publishBtn.textContent = "Processing & Compressing...";
+                    publishBtn.disabled = true;
+                    publishBtn.style.opacity = "0.6";
+
+                    try {
+                        // Recover server configurations dynamically if needed
+                        if (SUPABASE_PROJECT_URL === "https://supabase.co" || SUPABASE_ANON_KEY === "PASTE_YOUR_COPIED_ANON_PUBLIC_KEY_HERE") {
+                            const configRes = await fetch('/api/supabase-config');
+                            const configData = await configRes.json();
+                            if (configData.supabaseUrl && configData.supabaseKey) {
+                                SUPABASE_PROJECT_URL = configData.supabaseUrl;
+                                SUPABASE_ANON_KEY = configData.supabaseKey;
+                            }
+                        }
+
+                        if (!window.supabase) {
+                            throw new Error("Supabase JS Library has not initialized properly on your client.");
+                        }
+
+                        const supabaseClient = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
+
+                        showConsoleFeedback("Syncing raw audio track file to cloud bucket...");
+
+                        // STEP A: TRANSMIT AUDIO FILE TO BUCKET
+                        const audioPath = `vault/${Date.now()}_${audioInput.name.replace(/\s+/g, '_')}`;
+                        const { data: audioUpload, error: audioErr } = await supabaseClient.storage
+                            .from('unlimited-beats')
+                            .upload(audioPath, audioInput);
+
+                        if (audioErr) throw audioErr;
+                        const audioCdnUrl = supabaseClient.storage.from('unlimited-beats').getPublicUrl(audioPath).data.publicUrl;
+
+                        showConsoleFeedback("Applying web-ready downscaling to artwork file...");
+
+                        // STEP B: COMPRESS LARGE CUSTOM IMAGE FILE NATIVELY IN IPAD MEMORY
+                        const compressedImageBlob = await compressGraphicFile(imageInput);
+
+                        showConsoleFeedback("Syncing artwork image to cloud bucket...");
+
+                        // STEP C: TRANSMIT COMPRESSED IMAGE TO BUCKET
+                        const imagePath = `covers/${Date.now()}_art.jpg`;
+                        const { data: imageUpload, error: imgErr } = await supabaseClient.storage
+                            .from('unlimited-beats')
+                            .upload(imagePath, compressedImageBlob, { contentType: 'image/jpeg' });
+
+                        if (imgErr) throw imgErr;
+                        const imageCdnUrl = supabaseClient.storage.from('unlimited-beats').getPublicUrl(imagePath).data.publicUrl;
+
+                        showConsoleFeedback("Writing catalog metadata into Postgres DB table rows...");
+
+                        // STEP D: LOG BOTH LIVE STREAM PATHS TO YOUR SECURE TABLE GRID ROW
+                        const { error: dbErr } = await supabaseClient
+                            .from('marketplace_tracks')
+                            .insert([{
+                                title: titleInput,
+                                bpm: String(bpmInput || '140'),
+                                stream_url: audioCdnUrl,
+                                cover_art_url: imageCdnUrl, 
+                                image_url: imageCdnUrl,
+                                imageUrl: imageCdnUrl,
+                                producer: "Tyrox"
+                            }]);
+
+                        if (dbErr) throw dbErr;
+
+                        showConsoleFeedback(`🎉 Success! "${titleInput}" is now live on your storefront with custom art.`);
+                        
+                        // Clean input values
+                        document.getElementById('beatTitle').value = "";
+                        document.getElementById('beatFile').value = "";
+                        document.getElementById('coverImageFile').value = "";
+
+                        // Re-trigger visual updates instantly!
+                        streamRealBeatsNatively();
+
+                    } catch (systemError) {
+                        console.error("System pipeline connection failure:", systemError);
+                        showConsoleFeedback("System pipeline connection failure: " + (systemError.message || systemError), true);
+                    } finally {
+                        publishBtn.textContent = "Publish to Vercel Live Store";
+                        publishBtn.disabled = false;
+                        publishBtn.style.opacity = "1";
                     }
                 });
             }
 
-            // --- TIMELINE TRACK RAILS AND VOLUME CONTROLS ---
-            audioNode.addEventListener('timeupdate', () => {
-                if (audioNode.duration) {
-                    const percentage = (audioNode.currentTime / audioNode.duration) * 100;
-                    timelineFill.style.width = `${percentage}%`;
-                    timeCurrent.textContent = formatTimeLabels(audioNode.currentTime);
-                    timeTotal.textContent = formatTimeLabels(audioNode.duration);
-                }
-            });
-
-            timelineRail.addEventListener('click', (e) => {
-                if (audioNode.duration) {
-                    const clickPositionX = e.offsetX;
-                    const totalWidth = timelineRail.clientWidth;
-                    if (totalWidth > 0) {
-                        audioNode.currentTime = (clickPositionX / totalWidth) * audioNode.duration;
-                    }
-                }
-            });
-
-            volumeSlider.addEventListener('input', (e) => { 
-                audioNode.volume = parseFloat(e.target.value); 
-            });
-
-            function formatTimeLabels(seconds) {
-                if (isNaN(seconds)) return "0:00";
-                const mins = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            }
-
-            // --- AUTOMATIC NEXT-TRACK JUMPS ---
-            document.getElementById('deckNextBtn').addEventListener('click', () => {
-                if (activeTrackIndex < uploadedPlaylist.length - 1) {
-                    activateTargetTrack(activeTrackIndex + 1);
-                }
-            });
-
-            document.getElementById('deckPrevBtn').addEventListener('click', () => {
-                if (activeTrackIndex > 0) {
-                    activateTargetTrack(activeTrackIndex - 1);
-                }
-            });
-
-            audioNode.addEventListener('ended', () => {
-                if (activeTrackIndex < uploadedPlaylist.length - 1) {
-                    activateTargetTrack(activeTrackIndex + 1);
-                } else {
-                    synchronizeUIState(false);
-                }
-            });
+            // Initialize catalog sync on start
+            streamRealBeatsNatively();
         });
     </script>
 </body>

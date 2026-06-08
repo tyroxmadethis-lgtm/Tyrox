@@ -6,6 +6,9 @@
     <title>VibeVault // Premium Beat Store</title>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-YOUR_MEASUREMENT_ID"></script>
+    <!-- REASON: This forces a tiny, draggable console window to appear on your iPad screen, letting you read your Supabase network logs directly on your tablet. -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>try { eruda.init(); } catch(e) { console.warn("Eruda load delayed or failed:", e); }</script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}

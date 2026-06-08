@@ -16,6 +16,7 @@ import { apiFetch } from '../services/apiMock';
 import FreeDownloadGateModal from './FreeDownloadGateModal';
 import BeatStreamPlayer from './BeatStreamPlayer';
 import BeatCatalogGrid from './BeatCatalogGrid';
+import { supabase } from '../services/supabaseClient';
 
 interface StorefrontProps {
   onOpenLicenseModal: (track: Track) => void;
@@ -83,6 +84,88 @@ export const Storefront: React.FC<StorefrontProps> = ({
   const [profileImg, setProfileImg] = useState(() => {
     return localStorage.getItem('tyrox_profile_img') || "/static/images/tyrox_profile.jpg";
   });
+
+  const [supabaseTracks, setSupabaseTracks] = useState<Track[]>([]);
+  const [loadingSupabase, setLoadingSupabase] = useState(true);
+
+  useEffect(() => {
+    async function syncStorefrontWithLiveVault() {
+      if (!supabase) {
+        setLoadingSupabase(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('marketplace_tracks')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          const mapped: Track[] = data.map((t: any, idx: number) => {
+            const title = t.title || "Untitled Beat";
+            const bpm = parseInt(t.bpm) || 140;
+            const price = parseFloat(t.price) || 29.99;
+            const streamUrl = t.stream_url || t.audioUrl || "/static/converted/god_mode_tagged_preview.mp3";
+            const coverArt = t.cover_art_url || t.image_url || t.imageUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop";
+
+            return {
+              id: t.id || `sb-track-${idx}`,
+              title,
+              producer: t.producer || "Tyrox",
+              bpm,
+              key: t.key || "Am",
+              duration: t.duration || "3:10",
+              tags: t.tags || ["Trap", "Dark"],
+              imageUrl: coverArt,
+              audioUrl: streamUrl,
+              price,
+              prices: {
+                mp3: t.price_mp3 || price,
+                wav: t.price_wav || 129.99,
+                unlimited: t.price_unlimited || 299.99,
+                exclusive: t.price_exclusive || 499.99
+              },
+              plays: t.plays || 0,
+              downloads: t.downloads || 0,
+              sales: t.sales || 0,
+              streams: t.streams || t.plays || 0,
+              createdAt: t.created_at || t.createdAt || new Date().toISOString()
+            };
+          });
+          setSupabaseTracks(mapped);
+          console.log("⚡ Success! Storefront layout completely synced with your direct cloud vault.");
+        }
+      } catch (err) {
+        console.warn("Could not load cloud assets, using local fallback state loops:", err);
+      } finally {
+        setLoadingSupabase(false);
+      }
+    }
+
+    // Expose dynamic synchronizer globally for live uploads integration
+    (window as any).syncStorefrontWithLiveVault = syncStorefrontWithLiveVault;
+
+    // Direct stream deck integration support as requested
+    (window as any).loadTrackIntoBlazeDeck = (audioStreamUrl: string, trackTitle: string) => {
+      const audioEngine = document.getElementById('nativeAudioEngine') as HTMLAudioElement;
+      const playerTitleDisplay = document.getElementById('deckTrackTitle');
+
+      if (audioEngine && playerTitleDisplay) {
+        audioEngine.src = audioStreamUrl;
+        playerTitleDisplay.textContent = trackTitle;
+        audioEngine.play().catch(e => console.log("Stream init delayed until interaction:", e));
+      }
+    };
+
+    syncStorefrontWithLiveVault();
+
+    return () => {
+      delete (window as any).syncStorefrontWithLiveVault;
+      delete (window as any).loadTrackIntoBlazeDeck;
+    };
+  }, [tracks]);
 
   useEffect(() => {
     const handleBannerUpdate = (e: Event) => {
@@ -165,14 +248,18 @@ export const Storefront: React.FC<StorefrontProps> = ({
   };
 
   // Dynamically derive trendiest beats from the user's actual uploaded/streamed tracks
-  const trendiestBeatsList = tracks
-    .filter(t => (t.streams ?? t.plays ?? 0) > 0)
-    .sort((a, b) => ((b.streams ?? b.plays ?? 0) - (a.streams ?? a.plays ?? 0)));
+  const trendiestBeatsList = supabaseTracks.length > 0
+    ? supabaseTracks
+    : tracks
+      .filter(t => (t.streams ?? t.plays ?? 0) > 0)
+      .sort((a, b) => ((b.streams ?? b.plays ?? 0) - (a.streams ?? a.plays ?? 0)));
 
   // Dynamically derive mixes from any of the user's real beats that have hit at least 1 stream
-  const streamEligibleMixes = tracks
-    .filter(t => (t.streams ?? t.plays ?? 0) >= 1)
-    .sort((a, b) => ((b.streams ?? b.plays ?? 0) - (a.streams ?? a.plays ?? 0)));
+  const streamEligibleMixes = supabaseTracks.length > 0
+    ? supabaseTracks
+    : tracks
+      .filter(t => (t.streams ?? t.plays ?? 0) >= 1)
+      .sort((a, b) => ((b.streams ?? b.plays ?? 0) - (a.streams ?? a.plays ?? 0)));
 
   const handleFreeDownloadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -609,7 +696,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
           <h2 className="section-title-label font-extrabold font-sans text-neutral-100 uppercase select-none tracking-tight flex items-center gap-2">
             <span>💿</span> Your Mixes
           </h2>
-          <div className="mixes-grid-canvas">
+          <div className="mixes-grid-canvas" id="liveMixesCanvas">
             {streamEligibleMixes.length === 0 ? (
               <div className="col-span-full border border-dashed border-neutral-800/80 bg-neutral-950/30 rounded-2xl p-8 text-center my-2 max-w-full">
                 <div className="w-12 h-12 bg-purple-950/20 text-purple-400 border border-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -663,7 +750,10 @@ export const Storefront: React.FC<StorefrontProps> = ({
                           📈 {track.streams ?? track.plays ?? 0} STREAMS
                         </span>
                       </div>
-                      <p className="font-mono text-[9.5px] text-neutral-500 uppercase tracking-wider">{track.bpm} BPM • {track.key} • PROD. TYROX</p>
+                      <div className="flex items-center justify-between gap-1 w-full mt-1">
+                        <p className="font-mono text-[9.5px] text-neutral-500 uppercase tracking-wider">{track.bpm} BPM • {track.key} • PROD. TYROX</p>
+                        <span className="stream-badge-ui font-mono text-[9px] text-purple-400 bg-purple-950/10 px-1.5 py-0.5 rounded border border-purple-500/10 select-none">📊 {track.bpm} BPM</span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -689,7 +779,7 @@ export const Storefront: React.FC<StorefrontProps> = ({
         </div>
 
         <div 
-          id="trendiestSlider" 
+          id="liveTrendiestCanvas" 
           ref={trendiestSliderRef}
           onMouseDown={handleSliderMouseDown}
           onMouseLeave={handleSliderMouseLeave}
