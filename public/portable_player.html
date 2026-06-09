@@ -390,7 +390,12 @@
                             <!-- AUDIO TRANSMISSION LINK -->
                             <div class="form-group">
                                 <label>Select Audio Asset (.mp3 / .wav / .zip / .rar)</label>
-                                <input type="file" id="beat-upload" accept="audio/*,.zip,.rar" style="color: #62627a;">
+                                <input 
+                                  type="file" 
+                                  id="beat-upload" 
+                                  accept=".mp3,audio/mp3,audio/mpeg,.aac,audio/aac,audio/x-aac,.zip,application/zip,application/x-zip-compressed,.wav,audio/wav,audio/x-wav" 
+                                  style="display: block; width: 100%; padding: 20px; color: #62627a;"
+                                />
                             </div>
 
                             <!-- NEW GRAPHIC TRANSMISSION LINK -->
@@ -413,7 +418,7 @@
                                 <h4>Drag & Drop Your Trap Beat Here</h4>
                                 <p>Supports high-fidelity MP3, WAV, AIFF, or ZIP/RAR stems packages for local session playback</p>
                                 <button class="browse-files-btn">Browse Local Files</button>
-                                <input type="file" id="beatFileInput" accept="audio/*,.zip,.rar" hidden>
+                                <input type="file" id="beatFileInput" accept=".mp3,audio/mp3,audio/mpeg,.aac,audio/aac,audio/x-aac,.zip,application/zip,application/x-zip-compressed,.wav,audio/wav,audio/x-wav" hidden>
                             </div>
                         </div>
 

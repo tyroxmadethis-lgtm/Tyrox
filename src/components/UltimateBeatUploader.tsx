@@ -709,7 +709,7 @@ export const UltimateBeatUploader: React.FC = () => {
               ref={fileInputRef}
               onChange={handleFileInputChange}
               className="hidden"
-              accept="audio/*"
+              accept=".mp3,audio/mp3,audio/mpeg,.aac,audio/aac,audio/x-aac,.zip,application/zip,application/x-zip-compressed,.wav,audio/wav,audio/x-wav"
             />
             
             <Cloud className="text-purple-500 w-16 h-16 mx-auto animate-pulse" />
