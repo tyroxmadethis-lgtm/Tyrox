@@ -3,23 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createClient } from '@supabase/supabase-js';
+// Supabase client initialization is entirely disabled as we rely fully on local IndexedDB & mock database storage.
+export const SUPABASE_PROJECT_URL = "";
+export const SUPABASE_ANON_KEY = "";
 
-// AUTOMATED BRIDGE INITIALIZATION (Hardcoded to bypass AI Studio variables)
-// REASON: Placing your project keys directly into the code forces your website's
-// data pipeline to open immediately, removing the "Cloud Disconnected" error.
-export const SUPABASE_PROJECT_URL = (window as any).env?.NEXT_PUBLIC_SUPABASE_URL || (typeof process !== "undefined" ? (process as any).env?.NEXT_PUBLIC_SUPABASE_URL : "") || "https://supabase.co";
+(window as any).supabase = null;
 
-// Paste your long encrypted 'anon' / 'public' token string inside these quotes
-export const SUPABASE_ANON_KEY = (window as any).env?.NEXT_PUBLIC_SUPABASE_ANON_KEY || (typeof process !== "undefined" ? (process as any).env?.NEXT_PUBLIC_SUPABASE_ANON_KEY : "") || "PASTE_YOUR_LONG_ANON_PUBLIC_KEY_HERE";
+export const supabase = null;
 
-// Handshake bridge to expose createClient directly on the window object
-(window as any).supabase = { createClient };
-
-// Connect your custom standalone builder engine natively
-export const supabase = (SUPABASE_PROJECT_URL && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== "PASTE_YOUR_LONG_ANON_PUBLIC_KEY_HERE") 
-  ? createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY) 
-  : null;
-
-console.log("[Supabase Client Core] Initialized. Status:", SUPABASE_PROJECT_URL ? "Exposed" : "Pending Credentials", supabase ? "Client Loaded" : "Client Null");
+console.log("[Supabase Client Core] Disabled. Relying fully on local IndexedDB storage and Mock Backend endpoints.");
 
