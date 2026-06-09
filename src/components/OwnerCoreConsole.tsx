@@ -17,15 +17,9 @@ export const OwnerCoreConsole: React.FC<OwnerCoreConsoleProps> = ({ addNotificat
   const [soloCatalog, setSoloCatalog] = useState<SoloTrack[]>(() => {
     try {
       const saved = localStorage.getItem('vv_solo_catalog');
-      return saved ? JSON.parse(saved) : [
-        { title: "Cyber Pulse", bpm: "130", genre: "Trap", price: "29.99", fileName: "cyber_pulse.m4a" },
-        { title: "Neon Visions", bpm: "142", genre: "Hip-Hop", price: "34.99", fileName: "neon_visions.aac" }
-      ];
+      return saved ? JSON.parse(saved) : [];
     } catch (e) {
-      return [
-        { title: "Cyber Pulse", bpm: "130", genre: "Trap", price: "29.99", fileName: "cyber_pulse.m4a" },
-        { title: "Neon Visions", bpm: "142", genre: "Hip-Hop", price: "34.99", fileName: "neon_visions.aac" }
-      ];
+      return [];
     }
   });
 

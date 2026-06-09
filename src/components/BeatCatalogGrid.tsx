@@ -62,6 +62,19 @@ export default function BeatCatalogGrid() {
     );
   }
 
+  if (beatsCatalog.length === 0) {
+    return (
+      <div 
+        id="catalog-empty"
+        style={{ color: '#888', textAlign: 'center', padding: '80px 40px', background: '#050505' }}
+        className="font-sans text-xs uppercase tracking-widest leading-relaxed border border-neutral-900 rounded-xl max-w-lg mx-auto my-12"
+      >
+        <p className="font-bold text-neutral-300">Storefront catalog is empty</p>
+        <p className="text-neutral-500 mt-2 lowercase normal-case">Beats uploaded in your studio tab will map here in real-time.</p>
+      </div>
+    );
+  }
+
   return (
     <div 
       id="catalog-grid"

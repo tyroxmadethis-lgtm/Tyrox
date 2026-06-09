@@ -4,8 +4,7 @@ import fs from "fs";
 import multer from "multer";
 import ffmpeg from "fluent-ffmpeg";
 import { createServer as createViteServer } from "vite";
-import { connectToDatabase } from "./lib/mongodb";
-import { User, Track } from "./lib/mongooseModels";
+import { connectToDatabase, User, Track } from "./lib/localDb";
 import Stripe from "stripe";
 import * as _archiver from "archiver";
 import { put } from "@vercel/blob";
@@ -13,6 +12,10 @@ import { compileInstantContract } from "./lib/contractGenerator";
 import { handleUpload } from "@vercel/blob/client";
 import { v2 as cloudinary } from "cloudinary";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+function getPgPool(): null {
+  return null;
+}
 
 let s3ClientInstance: S3Client | null = null;
 function getS3Client(): { client: S3Client; bucketName: string; cdnUrl: string } | null {
@@ -669,70 +672,134 @@ async function startServer() {
   );
 
   // API Router - Create/Upload Beat/Track (with single numeric price value instead of object of tiers)
-  app.post("/api/tracks/create", express.json(), async (req, res) => {
-    try {
-      console.log("Server received track creation request payload:", req.body);
-      
-      const title = req.body.title !== undefined ? String(req.body.title).trim() : "";
-      
-      if (!title) {
-        return res.status(400).json({ success: false, error: "Missing required field: title is mandatory." });
-      }
-
-      // Ensure all decimal inputs are explicitly parsed using parseFloat(price) before executing database operations
-      const rawPrice = req.body.price;
-      const parsedPrice = rawPrice !== undefined ? parseFloat(String(rawPrice)) : 29.99;
-      
-      if (isNaN(parsedPrice)) {
-        return res.status(400).json({ success: false, error: "Data format rejected: price must be a valid numeric value.", field: "price" });
-      }
-
-      // Ensure numeric BPM is parsed correctly as number
-      const rawBpm = req.body.bpm;
-      const parsedBpm = rawBpm !== undefined ? parseInt(String(rawBpm), 10) : 140;
-
-      // Find user to associate with
-      const user = await User.findOne({ username: "tyrox" });
-      const producerId = user ? user._id : "6459fa4f8f4a13bf8eabcc1a";
-
-      const newTrackPayload = {
-        title,
-        producerId: producerId,
-        audioFileUrl: req.body.audioFileUrl ? String(req.body.audioFileUrl).trim() : "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad",
-        stemsFileUrl: req.body.stemsFileUrl ? String(req.body.stemsFileUrl).trim() : "",
-        price: parsedPrice,
-        licensingOptions: {
-          basicLeasePrice: parsedPrice,
-          exclusivePrice: parsedPrice
-        }
-      };
-
-      // Wrap the database update query in a clear try/catch block that returns a helpful, explicit error string if schema validation fails
+  app.post(
+    "/api/tracks/create",
+    beatMulter.fields([
+      { name: "audioFile", maxCount: 1 },
+      { name: "beatFile", maxCount: 1 },
+      { name: "artworkFile", maxCount: 1 }
+    ]),
+    async (req: any, res) => {
       try {
-        const doc = await Track.create(newTrackPayload);
-        res.status(201).json({ success: true, message: "Track registered in database successfully!", track: doc });
-      } catch (dbError: any) {
-        console.error("Database save failed inside track creation:", dbError);
-        let detailedError = "Database rejected the data format.";
-        let problemField = "unknown";
+        console.log("Server received track creation request. Body:", req.body);
         
-        if (dbError.name === "ValidationError") {
-          const errorDetails = Object.keys(dbError.errors || {}).map((key: string) => {
-            const e = dbError.errors[key];
-            problemField = e.path || key;
-            return `Column/Field [${problemField}] failed validation with message: ${e.message}`;
-          });
-          detailedError = `Database Schema ValidationError - ${errorDetails.join(" | ")}`;
-        } else if (dbError.message) {
-          detailedError = `Database rejected save with error details: ${dbError.message}`;
+        let audioFileUrl = "";
+        let finalImg = "";
+
+        // 1. Process audio file if uploaded via FormData
+        const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+        const audioFileObj = filesMap?.["audioFile"]?.[0] || filesMap?.["beatFile"]?.[0];
+        
+        if (audioFileObj) {
+          const inputPath = audioFileObj.path;
+          const originalName = audioFileObj.originalname || "beat.wav";
+          const lastDotIdx = originalName.lastIndexOf(".");
+          const baseName = lastDotIdx !== -1 ? originalName.substring(0, lastDotIdx) : originalName;
+          const ext = lastDotIdx !== -1 ? originalName.substring(lastDotIdx) : ".wav";
+          const safeBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, "_");
+          const outFilename = `${Date.now()}_${safeBaseName}${ext}`;
+          
+          const uploadsDir = path.join(process.cwd(), "public", "uploads");
+          fs.mkdirSync(uploadsDir, { recursive: true });
+          
+          const destinationPath = path.join(uploadsDir, outFilename);
+          
+          try {
+            fs.renameSync(inputPath, destinationPath);
+          } catch (renameErr) {
+            fs.copyFileSync(inputPath, destinationPath);
+            fs.unlinkSync(inputPath);
+          }
+          
+          audioFileUrl = `/uploads/${outFilename}`;
+          console.log(`[Local Upload] Audio saved permanently to public/uploads: ${audioFileUrl}`);
+        } else {
+          audioFileUrl = req.body.audioFileUrl || req.body.audio_url || "/static/converted/god_mode_tagged_preview.mp3";
         }
-        res.status(400).json({ success: false, error: detailedError, field: problemField });
+
+        // 2. Process artwork file if uploaded via FormData
+        const artworkFileObj = filesMap?.["artworkFile"]?.[0];
+        if (artworkFileObj) {
+          const inputPath = artworkFileObj.path;
+          const originalName = artworkFileObj.originalname || "artwork.jpg";
+          const lastDotIdx = originalName.lastIndexOf(".");
+          const baseName = lastDotIdx !== -1 ? originalName.substring(0, lastDotIdx) : originalName;
+          const ext = lastDotIdx !== -1 ? originalName.substring(lastDotIdx) : ".jpg";
+          const safeBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, "_");
+          const outFilename = `${Date.now()}_artwork_${safeBaseName}${ext}`;
+          
+          const uploadsDir = path.join(process.cwd(), "public", "uploads");
+          fs.mkdirSync(uploadsDir, { recursive: true });
+          
+          const destinationPath = path.join(uploadsDir, outFilename);
+          
+          try {
+            fs.renameSync(inputPath, destinationPath);
+          } catch (renameErr) {
+            fs.copyFileSync(inputPath, destinationPath);
+            fs.unlinkSync(inputPath);
+          }
+          
+          finalImg = `/uploads/${outFilename}`;
+          console.log(`[Local Upload] Artwork saved permanently to public/uploads: ${finalImg}`);
+        } else {
+          finalImg = req.body.imageUrl || req.body.image_url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop";
+        }
+
+        const title = req.body.title !== undefined ? String(req.body.title).trim() : "";
+        if (!title) {
+          return res.status(400).json({ success: false, error: "Missing required field: title is mandatory." });
+        }
+
+        const rawPrice = req.body.price;
+        const parsedPrice = rawPrice !== undefined ? parseFloat(String(rawPrice)) : 29.99;
+        
+        if (isNaN(parsedPrice)) {
+          return res.status(400).json({ success: false, error: "Data format rejected: price must be a valid numeric value.", field: "price" });
+        }
+
+        const rawBpm = req.body.bpm;
+        const parsedBpm = rawBpm !== undefined ? parseInt(String(rawBpm), 10) : 140;
+
+        const user = await User.findOne({ username: "tyrox" });
+        const producerId = user ? user._id : "6459fa4f8f4a13bf8eabcc1a";
+
+        const peaksArray = Array.from({ length: 120 }, () => parseFloat((0.15 + Math.random() * 0.8).toFixed(3)));
+
+        const newTrackPayload = {
+          title,
+          producerId: producerId,
+          audioFileUrl: audioFileUrl,
+          audio_url: audioFileUrl,
+          imageUrl: finalImg,
+          image_url: finalImg,
+          bpm: parsedBpm,
+          key: req.body.key ? String(req.body.key).trim() : "Am",
+          genre: req.body.genre ? String(req.body.genre).trim() : "Trap",
+          subgenre: req.body.subgenre ? String(req.body.subgenre).trim() : "Wisconsin Trap",
+          tags: req.body.tags ? String(req.body.tags).split(",").map((s: string) => s.trim()).filter(Boolean) : [],
+          price: parsedPrice,
+          peaks: peaksArray,
+          waveform_peaks: peaksArray,
+          waveformPeaks: peaksArray,
+          licensingOptions: {
+            basicLeasePrice: parsedPrice,
+            exclusivePrice: parsedPrice
+          }
+        };
+
+        try {
+          const doc = await Track.create(newTrackPayload);
+          res.status(201).json({ success: true, message: "Track registered in database successfully!", track: doc });
+        } catch (dbError: any) {
+          console.error("Database save failed inside track creation:", dbError);
+          res.status(400).json({ success: false, error: dbError.message || "Database rejected save details." });
+        }
+      } catch (error: any) {
+        console.error("Track creation handler error:", error);
+        res.status(500).json({ success: false, error: error.message });
       }
-    } catch (error: any) {
-      console.error("Track creation handler error:", error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
+    });
 
   // API Router - Save/Create Beat from Direct Cloud/Client uplink (Express counterpart of next.js server POST /api/beats/create)
   app.post("/api/beats/create", express.json(), async (req, res) => {
@@ -779,7 +846,7 @@ async function startServer() {
     }
   });
 
-  // API Router - Get Beats Catalog list directly from live db
+  // API Router - Get Beats Catalog list directly from live local JSON database
   app.get("/api/beats/public-list", async (req, res) => {
     try {
       const records = await Track.find({});
@@ -787,37 +854,30 @@ async function startServer() {
         const image = track.image_url || track.imageUrl || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop";
         const audio = track.audio_url || track.audioFileUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
         return {
-          id: track._id.toString(),
-          title: track.title,
+          id: String(track._id || track.id),
+          _id: String(track._id || track.id),
+          title: track.title || "Untitled Beat",
           price: typeof track.price === "number" ? track.price : 29.99,
           image_url: image,
           imageUrl: image,
           audio_url: audio,
           audioUrl: audio,
-          bpm: track.bpm || 140,
+          bpm: Number(track.bpm || 140),
           key: track.key || "Am",
           genre: track.genre || "",
-          tags: track.tags || []
+          tags: Array.isArray(track.tags) ? track.tags : [],
+          peaks: track.peaks || null,
+          waveform_peaks: track.peaks || null,
+          waveformPeaks: track.peaks || null
         };
       });
-      return res.json({ success: true, beats: mappedBeats });
+      return res.json({ success: true, provider: "Local JSON Database (beats.json)", beats: mappedBeats });
     } catch (err: any) {
-      console.error("Retrieve beats catalog database query failed:", err);
-      // Return stable default sample beats in fallback so layout is never empty
+      console.error("Retrieve beats catalog failed:", err);
       return res.json({ 
         success: false, 
-        error: "Failed to retrieve db catalog", 
-        beats: [
-          {
-            id: "fallback_001",
-            title: "Dark Legacy",
-            price: 29.99,
-            image_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop",
-            imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop",
-            audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-            audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-          }
-        ]
+        error: "Failed to retrieve local beats database", 
+        beats: []
       });
     }
   });

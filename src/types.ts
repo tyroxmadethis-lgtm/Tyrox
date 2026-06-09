@@ -28,6 +28,7 @@ export interface Track {
   allowFreeDownload?: boolean;
   streams?: number;
   plaque_awarded?: boolean;
+  peaks?: number[];
 }
 
 export interface LicenseOption {

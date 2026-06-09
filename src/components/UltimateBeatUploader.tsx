@@ -303,205 +303,114 @@ export const UltimateBeatUploader: React.FC = () => {
   };
 
   const triggerUploadProcess = async () => {
-    if (files.length === 0) {
-      alert("Please configure or upload at least one audio asset in Page 2 to sync.");
+    const audioFileItem = files.find((f) => f.type === "wav" || f.type === "mp3");
+    if (!audioFileItem) {
+      alert("Please upload at least one audio file first (MP3 or WAV)!");
       return;
     }
 
     setUploading(true);
-    let finishedCount = 0;
-    let artworkUrl: string | null = null;
-    let mainAudioUrl: string | null = null;
 
-    // Check for artwork files to upload securely to Cloudinary first
+    // Let's check for artwork
     const artworkFileItem = files.find((f) => f.type === "artwork");
+
+    // Construct FormData payload to send everything securely to our backend
+    const formData = new FormData();
+    formData.append("audioFile", audioFileItem.file);
     if (artworkFileItem) {
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.type === "artwork" ? { ...f, progress: 20 } : f
-        )
-      );
-      
-      const uploadedUrl = await uploadArtworkToCloudinary(artworkFileItem.file);
-      if (uploadedUrl) {
-        artworkUrl = uploadedUrl;
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.type === "artwork" ? { ...f, progress: 100, url: uploadedUrl } : f
-          )
-        );
-      } else {
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.type === "artwork" ? { ...f, progress: 100 } : f
-          )
-        );
-      }
+      formData.append("artworkFile", artworkFileItem.file);
     }
 
-    // Helper to simulate fallback progress
-    const runSimulatedAudioProgress = (fileItem: UploadFile) => {
-      let currentProgress = 0;
-      const interval = setInterval(() => {
-        currentProgress += Math.floor(Math.random() * 20) + 10;
-        if (currentProgress >= 100) {
-          currentProgress = 100;
-          clearInterval(interval);
-          finishedCount++;
+    formData.append("title", metadata.title || "Untitled Beat");
+    formData.append("bpm", String(metadata.bpm || 140));
+    formData.append("key", metadata.key || "Am");
+    formData.append("genre", metadata.genre || "Trap");
+    formData.append("subgenre", metadata.subgenre || "Wisconsin Trap");
+    formData.append("tags", metadata.tags.join(","));
+    formData.append("price", flatPrice || "29.99");
+    formData.append("allowFreeDownload", String(allowFreeDownload));
 
-          if (finishedCount === files.length) {
-            handleCompletePublishingFlow(artworkUrl, mainAudioUrl);
-          }
-        }
+    // Upload using XMLHttpRequest to get real-time upload progress!
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/tracks/create");
 
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percentComplete = Math.round((event.loaded / event.total) * 100);
         setFiles((prev) =>
           prev.map((f) =>
-            f.file.name === fileItem.file.name ? { ...f, progress: currentProgress } : f
+            f.type === "wav" || f.type === "mp3"
+              ? { ...f, progress: percentComplete }
+              : f
           )
         );
-      }, 100);
+      }
     };
 
-    // Process other files
-    files.forEach(async (fileItem) => {
-      if (fileItem.type === "artwork") {
-        finishedCount++;
-        if (finishedCount === files.length) {
-          handleCompletePublishingFlow(artworkUrl, mainAudioUrl);
-        }
-        return;
-      }
-
-      // If Supabase client is live, perform a genuine high-speed cloud upload!
-      if (supabase) {
+    xhr.onload = async () => {
+      if (xhr.status === 200 || xhr.status === 201) {
         try {
-          console.log(`[Supabase Upload Engine] Syncing file directly with cluster: ${fileItem.file.name}`);
-          
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.file.name === fileItem.file.name ? { ...f, progress: 15 } : f
-            )
-          );
+          const resData = JSON.parse(xhr.responseText);
+          console.log("[Local System Registry] Beat is Live of Tyrox Store:", resData);
 
-          const bucketPath = `vault/${Date.now()}_${fileItem.file.name}`;
-          const { data: storageData, error: storageError } = await supabase.storage
-            .from('unlimited-beats')
-            .upload(bucketPath, fileItem.file);
+          const trackData = resData.track;
+          const finalAudio = trackData?.audioFileUrl || trackData?.audio_url || "/static/converted/god_mode_tagged_preview.mp3";
+          const finalImg = trackData?.imageUrl || trackData?.image_url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop";
+          const finalPrice = parseFloat(flatPrice) || 29.99;
 
-          if (storageError) {
-            throw storageError;
-          }
+          // Call Context addTrack to notify the storefront seamlessly and load IMMEDIATELY with custom pre-calculated waveform peaks
+          addTrack({
+            _id: trackData?._id || trackData?.id || String(Date.now()),
+            id: trackData?._id || trackData?.id || String(Date.now()),
+            title: trackData?.title || metadata.title,
+            producer: "tyrox made this",
+            bpm: Number(trackData?.bpm) || Number(metadata.bpm) || 140,
+            key: trackData?.key || metadata.key || "Am",
+            duration: "2:40",
+            tags: [metadata.genre, metadata.subgenre, ...metadata.tags].filter(Boolean),
+            imageUrl: finalImg,
+            audioUrl: finalAudio,
+            audio_url: finalAudio,
+            audioFileUrl: finalAudio,
+            price: finalPrice,
+            prices: {
+              mp3: finalPrice,
+              wav: finalPrice,
+              unlimited: finalPrice,
+              exclusive: finalPrice
+            },
+            allowFreeDownload: allowFreeDownload,
+            peaks: trackData?.peaks || null,
+            waveform_peaks: trackData?.peaks || null,
+            waveformPeaks: trackData?.peaks || null
+          });
 
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.file.name === fileItem.file.name ? { ...f, progress: 75 } : f
-            )
-          );
-
-          // Get raw authenticated public URL
-          const { data: urlData } = supabase.storage.from('unlimited-beats').getPublicUrl(bucketPath);
-          const resolvedPathUrl = urlData?.publicUrl || "";
-
-          if (fileItem.type === "wav" || fileItem.type === "mp3") {
-            mainAudioUrl = resolvedPathUrl;
-          }
-
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.file.name === fileItem.file.name ? { ...f, progress: 100, url: resolvedPathUrl } : f
-            )
-          );
-
-          finishedCount++;
-          if (finishedCount === files.length) {
-            handleCompletePublishingFlow(artworkUrl, mainAudioUrl);
-          }
-        } catch (supaError: any) {
-          console.warn("[Supabase Upload Service] Handshake dropped. Falling back to secure standalone simulation...", supaError);
-          runSimulatedAudioProgress(fileItem);
+          setUploading(false);
+          setUploadSuccess(true);
+          setStep(5);
+        } catch (parseErr) {
+          console.error("XHR response parsing error:", parseErr);
+          alert("Parsed failure: Received invalid data structure from backend.");
+          setUploading(false);
         }
       } else {
-        runSimulatedAudioProgress(fileItem);
+        console.error("Server creation error:", xhr.status, xhr.responseText);
+        alert(`Server rejected publish file. Reason: ${xhr.statusText || "Database offline"}`);
+        setUploading(false);
       }
-    });
+    };
+
+    xhr.onerror = () => {
+      console.error("XHR submission error.");
+      alert("Network or connection upload error.");
+      setUploading(false);
+    };
+
+    xhr.send(formData);
   };
 
   const handleCompletePublishingFlow = async (artworkUrl: string | null, audioUrl: string | null) => {
-    const finalPrice = parseFloat(flatPrice) || 29.99;
-    
-    // Choose actual Cloudinary uploaded URL or fall back to high-quality unsplash/placeholder image
-    const finalImg = artworkUrl || (files.find((f) => f.type === "artwork")
-      ? "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop"
-      : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=300&auto=format&fit=crop");
-
-    // Resolve uncompressed stream path
-    const finalAudio = audioUrl || (files.find((f) => f.type === "mp3" || f.type === "wav")?.url || "/static/converted/god_mode_tagged_preview.mp3");
-
-    // Write metadata securely to marketplace_tracks table in real-time Postgres DB if present
-    if (supabase) {
-      try {
-        console.log("[Supabase Database Sync] Writing record to marketplace_tracks:", metadata.title);
-        const { error: dbError } = await supabase
-          .from('marketplace_tracks')
-          .insert([{ 
-            title: metadata.title || "Untitled AI Beat", 
-            bpm: String(metadata.bpm), 
-            stream_url: finalAudio,
-            producer: "Tyrox" 
-          }]);
-        if (dbError) throw dbError;
-        console.log("[Supabase Database Sync] Record inserted successfully!");
-      } catch (err: any) {
-        console.warn("[Supabase DB Failover] Direct insertion bypassed:", err?.message || err);
-      }
-    }
-
-    // Attempt actual back-end MongoDB API creation as second-tier fallback or local service sink
-    try {
-      const response = await fetch("/api/tracks/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: metadata.title || "Untitled AI Beat",
-          bpm: metadata.bpm || 140,
-          key: metadata.key || "Am",
-          genre: metadata.genre,
-          subgenre: metadata.subgenre,
-          tags: metadata.tags,
-          imageUrl: finalImg,
-          price: finalPrice,
-          allowFreeDownload: allowFreeDownload
-        })
-      });
-      const data = await response.json();
-      console.log("Database Sync Result:", data);
-    } catch (apiError) {
-      console.warn("MongoDB API offline or failed, writing to fallback local storage pipeline:", apiError);
-    }
-
-    // Call Context addTrack to notify the storefront seamlessly
-    addTrack({
-      title: metadata.title || "Untitled AI Beat",
-      producer: "tyrox made this",
-      bpm: Number(metadata.bpm) || 140,
-      key: metadata.key || "Am",
-      duration: "2:40",
-      tags: [metadata.genre, metadata.subgenre, ...metadata.tags].filter(Boolean),
-      imageUrl: finalImg,
-      audioUrl: finalAudio,
-      price: finalPrice,
-      prices: {
-        mp3: finalPrice,
-        wav: finalPrice,
-        unlimited: finalPrice,
-        exclusive: finalPrice
-      },
-      allowFreeDownload: allowFreeDownload
-    });
-
-    setUploading(false);
-    setUploadSuccess(true);
-    setStep(5);
+    // legacy fallback wrapper
   };
 
   // Nav Handlers
@@ -799,9 +708,8 @@ export const UltimateBeatUploader: React.FC = () => {
               type="file"
               ref={fileInputRef}
               onChange={handleFileInputChange}
-              multiple
               className="hidden"
-              accept=".wav,.mp3,audio/aac,audio/x-aac,.aac,audio/mp4,.m4a,.zip,.rar,.png,.jpg,.jpeg"
+              accept="audio/*"
             />
             
             <Cloud className="text-purple-500 w-16 h-16 mx-auto animate-pulse" />

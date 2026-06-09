@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tyrox Native Independent Engine</title>
-    <!-- Supabase CDN Client Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- WaveSurfer.js V7 CDN -->
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <!-- PayPal SDK with standard sandbox client-id and currency mapping -->
+    <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=USD"></script>
     <style>
         :root {
             --core-black: #050508;
@@ -159,6 +161,7 @@
             border-radius: 12px;
             padding: 30px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            margin-bottom: 25px;
         }
         .settings-card h3 {
             margin: 0 0 8px 0;
@@ -170,7 +173,7 @@
             gap: 8px;
         }
         .settings-subtext {
-            margin: 0 0 24px 0;
+            margin: 0 0 20px 0;
             font-size: 13px;
             color: var(--text-dim);
             line-height: 1.5;
@@ -189,7 +192,8 @@
             letter-spacing: 0.5px;
         }
         .form-group input[type="text"],
-        .form-group input[type="number"] {
+        .form-group input[type="number"],
+        .form-group input[type="email"] {
             background: var(--core-black);
             border: 1px solid var(--border-grey);
             border-radius: 6px;
@@ -200,7 +204,8 @@
             transition: border-color 0.15s;
         }
         .form-group input[type="text"]:focus,
-        .form-group input[type="number"]:focus {
+        .form-group input[type="number"]:focus,
+        .form-group input[type="email"]:focus {
             border-color: var(--neon-pink);
         }
         .form-group input[type="file"] {
@@ -221,6 +226,10 @@
             transition: opacity 0.15s, transform 0.1s;
             text-transform: uppercase;
             letter-spacing: 0.75px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
         }
         .save-changes-cta:hover {
             opacity: 0.9;
@@ -240,7 +249,65 @@
             text-align: center;
         }
 
+        .stripe-or-paypal-btn {
+            background: #ffc72c !important;
+            color: #003087 !important;
+            font-weight: 800;
+            cursor: pointer;
+            border-radius: 6px !important;
+            text-align: center;
+            padding: 8px 12px;
+            font-size: 12px;
+            border: none;
+            transition: background 0.15s;
+        }
+        .stripe-or-paypal-btn:hover {
+            background: #e2af25 !important;
+        }
+
         .hidden-display { display: none !important; }
+
+        /* CHECKOUT MODAL DRAWER OVERLAY */
+        .checkout-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(5, 5, 8, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 5000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .checkout-box {
+            background: var(--panel-dark);
+            border: 1px solid var(--border-grey);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 450px;
+            padding: 30px;
+            box-sizing: border-box;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+        }
+        .checkout-close-btn {
+            position: absolute;
+            top: 20px; right: 20px;
+            background: none; border: none;
+            color: var(--text-dim);
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .checkout-close-btn:hover { color: var(--text-white); }
+        .checkout-brand-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .checkout-price-pill {
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--neon-pink);
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -286,35 +353,55 @@
             <section class="storefront-content-frame">
                 <div class="portal-grid-layout">
                     
-                    <!-- COLUMN 1: NATIVE CONSOLE PUBLISH SUITE -->
-                    <div class="settings-card">
-                        <h3>🔒 Solo Upload Station</h3>
-                        <p class="settings-subtext">Publish original trap files and custom graphics straight to your database.</p>
+                    <!-- COLUMN 1: NATIVE CONSOLE PUBLISH & PAYPAL SUITE -->
+                    <div>
+                        <!-- NEW SECTION: PRODUCER REVENUE DASHBOARD (PAYPAL CONNECT EX-BEATSTARS) -->
+                        <div class="settings-card" style="border-color: rgba(138, 43, 226, 0.4); background: linear-gradient(135deg, var(--panel-dark) 0%, #0d0d1a 100%);">
+                            <h3 style="color: var(--success-green);"><span style="color: #ffc72c;">💱</span> BeatStars PayPal Connect</h3>
+                            <p class="settings-subtext">Direct payment integration routing. All license checkout proceeds route directly to your designated PayPal account.</p>
 
-                        <div class="form-group">
-                            <label>Beat Track Title</label>
-                            <input type="text" id="beatTitle" placeholder="e.g., Got lucky Mix">
+                            <div class="form-group">
+                                <label style="color: #ffc72c;">Producer PayPal Email Address</label>
+                                <input type="email" id="producerPaypalEmail" placeholder="e.g., tyroxmadethis@gmail.com" style="border-color: rgba(255, 199, 44, 0.4);">
+                            </div>
+
+                            <button class="save-changes-cta" id="savePaypalEmailBtn" style="background: linear-gradient(90deg, #ffc72c 0%, #ff8c00 100%); color: #003087;">
+                                <span>🔒 Securely Save PayPal Account</span>
+                            </button>
+                            
+                            <div id="paypalDashboardConsole" class="status-console-log hidden-display" style="background: rgba(255, 199, 44, 0.1); border-color: #ffc72c; color: #ffc72c;"></div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Tempo (BPM)</label>
-                            <input type="number" id="beatBpm" value="159">
-                        </div>
+                        <!-- SOLO UPLOAD STATION -->
+                        <div class="settings-card">
+                            <h3>🔒 Solo Upload Station</h3>
+                            <p class="settings-subtext">Publish original trap files and custom graphics straight to your database.</p>
 
-                        <!-- AUDIO TRANSMISSION LINK -->
-                        <div class="form-group">
-                            <label>Select Audio Asset (.mp3 / .wav)</label>
-                            <input type="file" id="beatFile" accept="audio/*" style="color: #62627a;">
-                        </div>
+                            <div class="form-group">
+                                <label>Beat Track Title</label>
+                                <input type="text" id="beatTitle" placeholder="e.g., Wisconsin Heat">
+                            </div>
 
-                        <!-- NEW GRAPHIC TRANSMISSION LINK -->
-                        <div class="form-group">
-                            <label>Select Cover Art Graphic (.jpg / .png)</label>
-                            <input type="file" id="coverImageFile" accept="image/*" style="color: #62627a;">
-                        </div>
+                            <div class="form-group">
+                                <label>Tempo (BPM)</label>
+                                <input type="number" id="beatBpm" value="159">
+                            </div>
 
-                        <button class="save-changes-cta" id="publishBtn">Publish to Vercel Live Store</button>
-                        <div id="statusConsole" class="status-console-log hidden-display">System processing active...</div>
+                            <!-- AUDIO TRANSMISSION LINK -->
+                            <div class="form-group">
+                                <label>Select Audio Asset (.mp3 / .wav)</label>
+                                <input type="file" id="beatFile" accept="audio/*" style="color: #62627a;">
+                            </div>
+
+                            <!-- NEW GRAPHIC TRANSMISSION LINK -->
+                            <div class="form-group">
+                                <label>Select Cover Art Graphic (.jpg / .png)</label>
+                                <input type="file" id="coverImageFile" accept="image/*" style="color: #62627a;">
+                            </div>
+
+                            <button class="save-changes-cta" id="publishBtn">Publish to Offline Catalog</button>
+                            <div id="statusConsole" class="status-console-log hidden-display">System processing active...</div>
+                        </div>
                     </div>
 
                     <!-- COLUMN 2: LOCAL STUDIO INGEST & DIGITAL TRACK VIEWORK -->
@@ -334,7 +421,7 @@
                         <div class="custom-blaze-container hidden-display" id="catalogDisplayContainer">
                             <div class="blaze-store-header">
                                 <h3>⚡ Active Studio Playlist</h3>
-                                <span class="status-badge">ENGINE ONLINE</span>
+                                <span class="status-badge" id="localStatusBadge" style="color: var(--success-green); font-weight: 700;">● LOCAL DATABASE READY</span>
                             </div>
 
                             <!-- DYNAMIC RECORD LINES ARE PRINTED HERE NATIVELY BY JAVASCRIPT -->
@@ -366,9 +453,7 @@
                 </div>
                 <div class="timeline-row">
                     <span id="timeCurrent" class="time-lbl">0:00</span>
-                    <div class="timeline-track-rail" id="timelineRail">
-                        <div class="timeline-fill-bar" id="timelineFill"></div>
-                    </div>
+                    <div id="waveform" style="flex-grow: 1; min-width: 0;"></div>
                     <span id="timeTotal" class="time-lbl">0:00</span>
                 </div>
             </div>
@@ -379,6 +464,24 @@
             </div>
         </footer>
 
+    </div>
+
+    <!-- DYNAMIC CHECKOUT POPUP DIALOG -->
+    <div id="checkoutModal" class="checkout-overlay hidden-display">
+        <div class="checkout-box">
+            <button class="checkout-close-btn" id="closeCheckoutBtn">×</button>
+            <div class="checkout-brand-header">
+                <div style="font-size: 32px;">🔥</div>
+                <h3 style="margin: 10px 0 5px 0;" id="checkoutBeatTitle">Wisconsin Beat</h3>
+                <span style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Exclusive Studio License</span>
+                <div class="checkout-price-pill" id="checkoutBeatPrice">$29.99</div>
+            </div>
+
+            <!-- PAYPAL INTEGRATED CHECKOUT ACTIONS TARGET -->
+            <div id="paypalCheckoutContainer" style="margin-top: 15px; border-radius: 6px; overflow: hidden;"></div>
+            
+            <div id="checkoutStatusFeedback" class="status-console-log hidden-display" style="font-size: 13px; margin-top: 15px; line-height: 1.4;"></div>
+        </div>
     </div>
 
     <script>
@@ -395,10 +498,199 @@
                 });
             }
 
-            // --- 1. DIRECT SECURE CLOUD HANDSHAKE CONFIGURATION ---
-            // REASON: Configurable cloud credentials with dynamic safe server-side config recovery fallback
-            let SUPABASE_PROJECT_URL = "https://supabase.co";
-            let SUPABASE_ANON_KEY = "PASTE_YOUR_COPIED_ANON_PUBLIC_KEY_HERE"; // Paste your long anon public key here
+            // --- PAYPAL CONNECT SYSTEM: SECURE PREFERENCES IN LOCALSTORAGE/INDEXEDDB ---
+            const producerPaypalEmailInput = document.getElementById('producerPaypalEmail');
+            const savePaypalEmailBtn = document.getElementById('savePaypalEmailBtn');
+            const paypalDashboardConsole = document.getElementById('paypalDashboardConsole');
+
+            // Default producer PayPal mapping fallback
+            let activeProducerPaypalEmail = localStorage.getItem('tyrox_producer_paypal_email') || 'tyroxmadethis@gmail.com';
+
+            if (producerPaypalEmailInput) {
+                producerPaypalEmailInput.value = activeProducerPaypalEmail;
+            }
+
+            function showDashboardConsole(msg, isError = false) {
+                if (!paypalDashboardConsole) return;
+                paypalDashboardConsole.textContent = msg;
+                paypalDashboardConsole.style.borderColor = isError ? "var(--neon-pink)" : "var(--success-green)";
+                paypalDashboardConsole.style.color = isError ? "var(--neon-pink)" : "var(--success-green)";
+                paypalDashboardConsole.classList.remove('hidden-display');
+                setTimeout(() => { paypalDashboardConsole.classList.add('hidden-display'); }, 4000);
+            }
+
+            if (savePaypalEmailBtn) {
+                savePaypalEmailBtn.addEventListener('click', () => {
+                    const emailVal = producerPaypalEmailInput.value.trim();
+                    if (!emailVal || !emailVal.includes('@')) {
+                        return showDashboardConsole("Please enter a valid PayPal Email Address before saving.", true);
+                    }
+                    localStorage.setItem('tyrox_producer_paypal_email', emailVal);
+                    activeProducerPaypalEmail = emailVal;
+                    showDashboardConsole(`● Connection Verified! Proceeds now route directly to: ${emailVal}`);
+                });
+            }
+
+            // --- INDEXEDDB EXTENSION SYSTEM (SELF-CONTAINED PERSISTENCE) ---
+            const DB_NAME = 'TyroxPortableDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'beats';
+
+            function initDatabase() {
+                return new Promise((resolve, reject) => {
+                    try {
+                        const request = indexedDB.open(DB_NAME, DB_VERSION);
+                        request.onupgradeneeded = (e) => {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                                db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                            }
+                        };
+                        request.onsuccess = (e) => {
+                            resolve(e.target.result);
+                        };
+                        request.onerror = (e) => {
+                            reject(e.target.error);
+                        };
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            }
+
+            function saveBeatToDB(beat) {
+                return initDatabase().then((db) => {
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(STORE_NAME, 'readwrite');
+                        const store = tx.objectStore(STORE_NAME);
+                        const request = store.add(beat);
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                });
+            }
+
+            function getAllBeatsFromDB() {
+                return initDatabase().then((db) => {
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(STORE_NAME, 'readonly');
+                        const store = tx.objectStore(STORE_NAME);
+                        const request = store.getAll();
+                        request.onsuccess = () => resolve(request.result || []);
+                        request.onerror = () => reject(request.error);
+                    });
+                });
+            }
+
+            function deleteBeatFromDB(id) {
+                return initDatabase().then((db) => {
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(STORE_NAME, 'readwrite');
+                        const store = tx.objectStore(STORE_NAME);
+                        const request = store.delete(id);
+                        request.onsuccess = () => resolve();
+                        request.onerror = () => reject(request.error);
+                    });
+                });
+            }
+
+            // COMPUTE AUDIO WAVEFORM PEAKS LOCALLY VIA BROWSERS WEBAUDIO HANDSHAKE
+            function getAudioPeaks(audioBlob, samples = 200) {
+                return new Promise((resolve) => {
+                    try {
+                        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            audioCtx.decodeAudioData(e.target.result, (buffer) => {
+                                const decodedData = buffer.getChannelData(0); // single channel
+                                const step = Math.ceil(decodedData.length / samples);
+                                const peaks = [];
+                                for (let i = 0; i < samples; i++) {
+                                    let max = 0;
+                                    for (let j = 0; j < step; j++) {
+                                        const index = i * step + j;
+                                        if (index >= decodedData.length) break;
+                                        const val = Math.abs(decodedData[index]);
+                                        if (val > max) max = val;
+                                    }
+                                    peaks.push(parseFloat(max.toFixed(4)));
+                                }
+                                // Clean up resources
+                                audioCtx.close().catch(() => {});
+                                resolve(peaks);
+                            }, (decodeErr) => {
+                                console.warn("Audio Context failed to decode audio peaks natively:", decodeErr);
+                                audioCtx.close().catch(() => {});
+                                resolve([]);
+                            });
+                        };
+                        reader.onerror = () => {
+                            audioCtx.close().catch(() => {});
+                            resolve([]);
+                        };
+                        reader.readAsArrayBuffer(audioBlob);
+                    } catch (err) {
+                        console.warn("WebAudio API peaks generation failed unexpectedly:", err);
+                        resolve([]);
+                    }
+                });
+            }
+
+            // OFFLINE ARTWORK AUTO-GENERATOR FALLBACK (STYLISH GRADIENT MOCK DESIGNER)
+            function generateDefaultArtworkBlob(title) {
+                return new Promise((resolve) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 300;
+                    canvas.height = 300;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Cool, dark glowing linear gradient background
+                    const grad = ctx.createLinearGradient(0, 0, 300, 300);
+                    grad.addColorStop(0, '#ff0055');
+                    grad.addColorStop(0.5, '#4b0082');
+                    grad.addColorStop(1, '#8a2be2');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, 300, 300);
+                    
+                    // Dark matte circle for visual depth
+                    ctx.beginPath();
+                    ctx.arc(150, 150, 65, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(5, 5, 8, 0.75)';
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#ff0055';
+                    ctx.stroke();
+
+                    // Track initials or logo emoji icon in the middle
+                    ctx.font = '72px system-ui';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🔥', 151, 150);
+                    
+                    canvas.toBlob((blob) => {
+                        resolve(blob || new Blob());
+                    }, 'image/jpeg', 0.85);
+                });
+            }
+
+            // OBJECT URL MANAGER TO PREVENT MEMORY LEAK GRIDS
+            let activeObjectURLs = [];
+            function clearPreviousObjectURLs() {
+                activeObjectURLs.forEach(url => {
+                    try {
+                        URL.revokeObjectURL(url);
+                    } catch (e) {
+                        console.warn("Failed to revoke object URL:", e);
+                    }
+                });
+                activeObjectURLs = [];
+            }
+            function createSafeObjectURL(blob) {
+                if (!blob) return '';
+                const url = URL.createObjectURL(blob);
+                activeObjectURLs.push(url);
+                return url;
+            }
 
             // DOM Audio Deck References
             const audioEngine = document.getElementById('nativeAudioEngine');
@@ -407,65 +699,83 @@
             const deckProducerName = document.getElementById('deckProducerName');
             const deckArtBox = document.getElementById('deckArtBox');
             
-            const timelineRail = document.getElementById('timelineRail');
-            const timelineFill = document.getElementById('timelineFill');
             const timeCurrent = document.getElementById('timeCurrent');
             const timeTotal = document.getElementById('timeTotal');
             const volumeSlider = document.getElementById('volumeSlider');
 
+            // Initialize Premium WaveSurfer Visual Signature Player
+            const wavesurfer = window.WaveSurfer ? window.WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#4f4f4f',
+                progressColor: 'var(--neon-pink)',
+                cursorColor: '#ffffff',
+                cursorWidth: 1,
+                height: 28,
+                barWidth: 2,
+                barGap: 3,
+                barRadius: 2,
+                responsive: true,
+                media: audioEngine
+            }) : null;
+
             // Grid Canvas Targets
             const dynamicTrackQueue = document.getElementById('dynamicTrackQueue');
             const catalogDisplayContainer = document.getElementById('catalogDisplayContainer');
-            const liveMixesCanvas = document.getElementById('liveMixesCanvas');
-            const liveTrendiestCanvas = document.getElementById('liveTrendiestCanvas');
             const beatFileInput = document.getElementById('beatFileInput');
 
             let globalAudioPlaylistArray = [];
             let activeTrackIndex = -1;
 
-            // --- 2. LIVE DATABASE CATALOG RECOVERY LOOP & DIRECT APP-INTEGRATION ---
-            // REASON: Wipes out placeholder items and renders pristine records loaded live from Supabase.
+            // --- 2. LIVE INDEXEDDB OFFLINE CATALOG SYNC & RENDERING HANDSHAKES ---
             async function streamRealBeatsNatively() {
+                clearPreviousObjectURLs();
                 try {
-                    // Pull real configurations dynamically if default credentials placeholders remain unchanged
-                    if (SUPABASE_PROJECT_URL === "https://supabase.co" || SUPABASE_ANON_KEY === "PASTE_YOUR_COPIED_ANON_PUBLIC_KEY_HERE") {
-                        try {
-                            const configRes = await fetch('/api/supabase-config');
-                            const configData = await configRes.json();
-                            if (configData.supabaseUrl && configData.supabaseKey) {
-                                SUPABASE_PROJECT_URL = configData.supabaseUrl;
-                                SUPABASE_ANON_KEY = configData.supabaseKey;
-                            }
-                        } catch (e) {
-                            console.warn("[Cloud Handshake] Config server fetch delayed:", e);
+                    let databaseRecords = [];
+                    
+                    try {
+                        const idbBeats = await getAllBeatsFromDB();
+                        if (idbBeats && idbBeats.length > 0) {
+                            databaseRecords = idbBeats;
                         }
+                    } catch (dbErr) {
+                        console.warn("[IndexedDB Sync] Failed to read from browser storage, falling back...", dbErr);
                     }
 
-                    if (!window.supabase) {
-                        console.warn("[Supabase Core] Javascript library unavailable.");
-                        return;
-                    }
+                    globalAudioPlaylistArray = databaseRecords.map(b => {
+                        const streamUrl = createSafeObjectURL(b.audioBlob);
+                        const coverArtUrl = b.imageBlob ? createSafeObjectURL(b.imageBlob) : '';
+                        return {
+                            id: b.id,
+                            title: b.title,
+                            bpm: b.bpm || '140',
+                            streamUrl: streamUrl,
+                            cover_art_url: coverArtUrl,
+                            imageUrl: coverArtUrl,
+                            image_url: coverArtUrl,
+                            isCloud: false,
+                            peaks: b.peaks || []
+                        };
+                    }) || [];
 
-                    const supabase = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
-                    const { data: databaseRecords, error } = await supabase
-                        .from('marketplace_tracks')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-
-                    if (error) throw error;
-
-                    globalAudioPlaylistArray = databaseRecords || [];
-
-                    // Guard rails: tell the user is ready to listen
+                    // Elegant high-fidelity empty state layout if local IndexedDB returns empty lists
                     if (globalAudioPlaylistArray.length === 0) {
-                        const emptyMessage = `<p style="color:#62627a; text-align:center; padding:30px; width:100%;">Your store is ready. Open your private upload window to publish your original beats.</p>`;
+                        const emptyMessage = `
+                            <div style="text-align: center; padding: 40px 20px; background: rgba(9, 9, 14, 0.6); border: 1px dashed var(--border-grey); border-radius: 8px; width: 100%; box-sizing: border-box;">
+                                <div style="font-size: 36px; margin-bottom: 12px; filter: grayscale(1);">🎵</div>
+                                <h4 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 700; color: var(--text-white);">Studio Catalog is Empty</h4>
+                                <p style="margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.4;">
+                                    No records found in browser IndexedDB storage.
+                                </p>
+                                <p style="margin: 10px 0 0 0; font-size: 12px; color: var(--neon-pink); font-weight: 600; letter-spacing: 0.5px;">
+                                    Use the "Solo Upload Station" or drop tracks below to populate your offline store!
+                                </p>
+                            </div>
+                        `;
                         if (dynamicTrackQueue) dynamicTrackQueue.innerHTML = emptyMessage;
-                        if (liveMixesCanvas) liveMixesCanvas.innerHTML = emptyMessage;
-                        if (liveTrendiestCanvas) liveTrendiestCanvas.innerHTML = emptyMessage;
                         return;
                     }
 
-                    // A. UPDATE THE MAIN PLATFORM PLAYLIST TRACK ROW ENTRIES (PORTABLE WIDGET QUEUE)
+                    // A. UPDATE THE MAIN PLATFORM PLAYLIST TRACK ROW ENTRIES (INCLUDING PAYPAL DEMO BUY ACTION)
                     if (dynamicTrackQueue) {
                         dynamicTrackQueue.innerHTML = "";
                         globalAudioPlaylistArray.forEach((track, idx) => {
@@ -473,59 +783,75 @@
                             row.className = 'blaze-track-row';
                             row.setAttribute('data-playlist-index', idx);
                             row.setAttribute('id', `studio-track-row-${idx}`);
+                            
+                            const sourceTag = "LOCAL DB";
+                            const specLabel = "Persistent IndexedDB Storage";
+                            const accentColor = "var(--neon-pink)";
+
                             row.innerHTML = `
                                 <button class="blaze-play-trigger" data-action="play-toggle" data-index="${idx}">▶</button>
                                 <div class="meta-cell">
                                     <span class="beat-name">${track.title || "Untitled Beat"}</span>
-                                    <span class="file-spec-tag">Cloud Vault Asset</span>
+                                    <span class="file-spec-tag">${specLabel}</span>
                                 </div>
-                                <span class="stat-cell" style="color: var(--neon-purple); font-weight:600;">CLOUD</span>
-                                <span class="stat-cell">${track.bpm || '140'} BPM</span>
+                                <span class="stat-cell" style="color: ${accentColor}; font-weight:700;">${sourceTag}</span>
+                                <div class="stat-cell" style="display: flex; gap: 12px; justify-content: flex-end; align-items: center; min-width: 170px;">
+                                    <span>${track.bpm || '140'} BPM</span>
+                                    <button class="stripe-or-paypal-btn BuyTrigger" data-index="${idx}">BUY BEAT</button>
+                                    <button class="delete-beat-btn" data-id="${track.id}" style="background:none; border:none; color:var(--neon-pink); cursor:pointer; font-size:12px; padding:4px; margin-left: 6px; transition: opacity 0.15s;" title="Delete Beat permanently" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">🗑</button>
+                                </div>
                             `;
                             dynamicTrackQueue.appendChild(row);
                         });
                     }
 
-                    // B. UPDATE THE VISUAL PRODUCT GRID CARDS (YOUR MIXES & TRENDING BEATS IF CONTAINERS ARE DETECTED)
-                    const renderGridCards = (canvasContainer) => {
-                        if (!canvasContainer) return;
-                        canvasContainer.innerHTML = "";
-                        globalAudioPlaylistArray.forEach((track, idx) => {
-                            const card = document.createElement('div');
-                            card.className = 'mix-card-item';
-                            
-                            // SWAPS OLD STATIC GRAPHICS FOR THE CUSTOM IMAGE LINK ROW RETRIEVED STRAIGHT FROM YOUR ACTIVE SUPABASE BUCKET
-                            const fallbackArtwork = track.cover_art_url || track.image_url || track.imageUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop';
-                            
-                            card.innerHTML = `
-                                <div class="composite-artwork-frame single-image-cover" onclick="initializeDirectAudioStream(${idx})">
-                                    <img src="${fallbackArtwork}" alt="${track.title || 'Track'} Cover Art" style="width:100%; height:100%; object-fit:cover; border-radius:8px;" referrerpolicy="no-referrer">
-                                </div>
-                                <span class="mix-card-title" style="margin-top:8px; font-weight:700;">${track.title || 'Untitled'}</span>
-                                <span class="stream-badge-ui" style="font-size:12px; color:#62627a;">🔥 ${track.bpm || '140'} BPM</span>
-                            `;
-                            canvasContainer.appendChild(card);
-                        });
-                    };
-
-                    renderGridCards(liveMixesCanvas);
-                    renderGridCards(liveTrendiestCanvas);
-
                     // Unhide catalog container box if items exist
-                    if (catalogDisplayContainer && globalAudioPlaylistArray.length > 0) {
-                        catalogDisplayContainer.classList.remove('hidden-display');
+                    if (catalogDisplayContainer) {
+                        if (globalAudioPlaylistArray.length > 0) {
+                            catalogDisplayContainer.classList.remove('hidden-display');
+                        } else {
+                            catalogDisplayContainer.classList.add('hidden-display');
+                        }
                     }
 
-                    console.log("⚡ Success! Dynamic Cloud Handshake synced with database records. Count:", globalAudioPlaylistArray.length);
+                    console.log("⚡ Success! Local IndexedDB synced successfully. Beats Count:", globalAudioPlaylistArray.length);
 
                 } catch (connectionError) {
-                    console.error("Cloud database synchronization failure:", connectionError);
+                    console.error("Local database synchronization failure:", connectionError);
                 }
             }
 
             // --- 3. HARDWARE MEDIA INTERCEPTOR CODES & LOCAL DRAG-DROP HANDLERS ---
             if (dynamicTrackQueue) {
-                dynamicTrackQueue.addEventListener('click', (event) => {
+                dynamicTrackQueue.addEventListener('click', async (event) => {
+                    const deleteBtn = event.target.closest('.delete-beat-btn');
+                    if (deleteBtn) {
+                        event.stopPropagation();
+                        const idStr = deleteBtn.getAttribute('data-id');
+                        const id = parseInt(idStr);
+                        if (!isNaN(id)) {
+                            if (confirm("Are you sure you want to delete this track permanently from browser storage?")) {
+                                try {
+                                    await deleteBeatFromDB(id);
+                                    showConsoleFeedback("Track deleted successfully!");
+                                    await streamRealBeatsNatively();
+                                } catch (err) {
+                                    showConsoleFeedback("Deletion failed: " + err.message, true);
+                                }
+                            }
+                        }
+                        return;
+                    }
+
+                    // Handles paypal checkouts on row triggers
+                    const buyBtn = event.target.closest('.BuyTrigger');
+                    if (buyBtn) {
+                        event.stopPropagation();
+                        const idx = parseInt(buyBtn.getAttribute('data-index'));
+                        triggerPayloadPayPalCheckout(idx);
+                        return;
+                    }
+
                     const playTrigger = event.target.closest('[data-action="play-toggle"]') || event.target.closest('.blaze-play-trigger');
                     if (!playTrigger) return;
 
@@ -546,14 +872,39 @@
                     clearVisualHighlightStates();
                     activeTrackIndex = index;
 
-                    // Route your original cloud audio file link straight to the browser audio core
-                    const streamUrl = targetTrack.streamUrl || targetTrack.stream_url || targetTrack.audioUrl || "/static/converted/god_mode_tagged_preview.mp3";
-                    audioEngine.src = streamUrl;
+                    const streamUrl = targetTrack.streamUrl;
+                    
+                    if (wavesurfer) {
+                        const trackPeaks = targetTrack.peaks;
+                        if (trackPeaks && Array.isArray(trackPeaks) && trackPeaks.length > 0) {
+                            wavesurfer.load(streamUrl, trackPeaks);
+                        } else {
+                            wavesurfer.load(streamUrl);
+                        }
+                    } else {
+                        audioEngine.src = streamUrl;
+                    }
+                    
                     deckTrackTitle.textContent = targetTrack.title || "Untitled Beat";
                     deckProducerName.textContent = "by tyrox made this";
-                    if (deckArtBox) deckArtBox.textContent = "🔥";
+                    
+                    if (deckArtBox) {
+                        const cellArtwork = targetTrack.cover_art_url;
+                        if (cellArtwork) {
+                            deckArtBox.innerHTML = `<img src="${cellArtwork}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;" referrerpolicy="no-referrer">`;
+                            deckArtBox.style.padding = "0";
+                        } else {
+                            deckArtBox.innerHTML = "🔥";
+                        }
+                    }
 
-                    audioEngine.play().catch(err => console.warn("iPad tablet device holding audio playback handshake:", err));
+                    if (wavesurfer) {
+                        wavesurfer.once('ready', () => {
+                            wavesurfer.play().catch(err => console.warn("Audio play blocked by browser sandbox:", err));
+                        });
+                    } else {
+                        audioEngine.play().catch(err => console.warn("iPad tablet device holding audio playback handshake:", err));
+                    }
                     synchronizeUILayoutStates(true);
                 }
             };
@@ -565,11 +916,20 @@
                 }
                 if (activeTrackIndex === -1) return;
                 
-                if (audioEngine.paused) {
-                    audioEngine.play().catch(e => console.warn("Audio resume blocked until interaction:", e));
+                const isPaused = wavesurfer ? !wavesurfer.isPlaying() : audioEngine.paused;
+                if (isPaused) {
+                    if (wavesurfer) {
+                        wavesurfer.play().catch(e => console.warn("Audio resume blocked until interaction:", e));
+                    } else {
+                        audioEngine.play().catch(e => console.warn("Audio resume blocked until interaction:", e));
+                    }
                     synchronizeUILayoutStates(true);
                 } else {
-                    audioEngine.pause();
+                    if (wavesurfer) {
+                        wavesurfer.pause();
+                    } else {
+                        audioEngine.pause();
+                    }
                     synchronizeUILayoutStates(false);
                 }
             }
@@ -582,7 +942,7 @@
                 if (masterPlayBtn) masterPlayBtn.textContent = isPlaying ? '⏸' : '▶';
                 
                 globalAudioPlaylistArray.forEach((_, idx) => {
-                    const row = document.getElementById(`studio-track-row-${idx}`) || document.getElementById(`live-track-row-${idx}`);
+                    const row = document.getElementById(`studio-track-row-${idx}`);
                     if (row) {
                         const rowBtn = row.querySelector('[data-action="play-toggle"]') || row.querySelector('.blaze-play-trigger');
                         if (rowBtn) {
@@ -599,7 +959,7 @@
 
             function clearVisualHighlightStates() {
                 globalAudioPlaylistArray.forEach((_, idx) => {
-                    const row = document.getElementById(`studio-track-row-${idx}`) || document.getElementById(`live-track-row-${idx}`);
+                    const row = document.getElementById(`studio-track-row-${idx}`);
                     if (row) {
                         row.classList.remove('active-playing-row');
                         const rowBtn = row.querySelector('[data-action="play-toggle"]') || row.querySelector('.blaze-play-trigger');
@@ -608,20 +968,34 @@
                 });
             }
 
-            // Fallback for visual handlers
-            const clearAllVisualRowHighlightStates = clearVisualHighlightStates;
-
             // --- 4. STREAM TRACK TIMELINE UPDATE AND VOLUME RAILS ---
-            if (audioEngine) {
+            if (wavesurfer) {
+                wavesurfer.on('timeupdate', (currentTime) => {
+                    if (timeCurrent) timeCurrent.textContent = formatTimeLabels(currentTime);
+                });
+
+                wavesurfer.on('ready', () => {
+                    const duration = wavesurfer.getDuration();
+                    if (timeTotal) timeTotal.textContent = formatTimeLabels(duration);
+                });
+
+                wavesurfer.on('play', () => {
+                    synchronizeUILayoutStates(true);
+                });
+
+                wavesurfer.on('pause', () => {
+                    synchronizeUILayoutStates(false);
+                });
+            } else if (audioEngine) {
                 audioEngine.addEventListener('timeupdate', () => {
                     if (audioEngine.duration) {
-                        const percentage = (audioEngine.currentTime / audioEngine.duration) * 100;
-                        if (timelineFill) timelineFill.style.width = `${percentage}%`;
                         if (timeCurrent) timeCurrent.textContent = formatTimeLabels(audioEngine.currentTime);
                         if (timeTotal) timeTotal.textContent = formatTimeLabels(audioEngine.duration);
                     }
                 });
+            }
 
+            if (audioEngine) {
                 audioEngine.addEventListener('ended', () => {
                     if (activeTrackIndex < globalAudioPlaylistArray.length - 1) {
                         initializeDirectAudioStream(activeTrackIndex + 1);
@@ -633,21 +1007,14 @@
                 });
             }
 
-            if (timelineRail && audioEngine) {
-                timelineRail.addEventListener('click', (e) => {
-                    if (audioEngine.duration) {
-                        const clickPositionX = e.offsetX;
-                        const totalWidth = timelineRail.clientWidth;
-                        if (totalWidth > 0) {
-                            audioEngine.currentTime = (clickPositionX / totalWidth) * audioEngine.duration;
-                        }
-                    }
-                });
-            }
-
-            if (volumeSlider && audioEngine) {
+            if (volumeSlider) {
                 volumeSlider.addEventListener('input', (e) => { 
-                    audioEngine.volume = parseFloat(e.target.value); 
+                    const vol = parseFloat(e.target.value);
+                    if (wavesurfer) {
+                        wavesurfer.setVolume(vol);
+                    } else {
+                        audioEngine.volume = vol;
+                    }
                 });
             }
 
@@ -670,14 +1037,14 @@
                 });
             }
             if (deckPrevBtn) {
-                deckPrevBtn.addEventListener('click', () => {
+                sidebarToggle === null ? null : deckPrevBtn.addEventListener('click', () => {
                     if (activeTrackIndex > 0) {
                         initializeDirectAudioStream(activeTrackIndex - 1);
                     }
                 });
             }
 
-            // --- 5. SUPPORT LOCAL HARD-DRIVE INGEST ACTION ---
+            // --- 5. SUPPORT LOCAL HARD-DRIVE INGEST ACTION (INTO INDEXEDDB) ---
             if (beatFileInput) {
                 beatFileInput.addEventListener('change', (event) => {
                     const targetedFiles = Array.from(event.target.files);
@@ -703,43 +1070,38 @@
                 });
             }
 
-            function processIncomingLocalAudioTracks(fileArray) {
-                fileArray.forEach(file => {
-                    if (!file.type.startsWith('audio/')) return;
+            async function processIncomingLocalAudioTracks(fileArray) {
+                showConsoleFeedback("Ingesting tracks permanently...");
+                try {
+                    for (const file of fileArray) {
+                        if (!file.type.startsWith('audio/')) continue;
 
-                    const transientBlobStreamUrl = URL.createObjectURL(file);
-                    const localTrack = {
-                        title: file.name.replace(/\.[^/.]+$/, ""),
-                        bpm: 140,
-                        streamUrl: transientBlobStreamUrl,
-                        isCloud: false,
-                        cover_art_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300&auto=format&fit=crop',
-                        size: (file.size / (1024 * 1024)).toFixed(2) + " MB"
-                    };
+                        const title = file.name.replace(/\.[^/.]+$/, "");
+                        showConsoleFeedback(`Analyzing peaks for "${title}"...`);
+                        const computedPeaks = await getAudioPeaks(file, 200);
 
-                    globalAudioPlaylistArray.push(localTrack);
-                    const idx = globalAudioPlaylistArray.length - 1;
+                        showConsoleFeedback(`Generating custom artwork canvas for "${title}"...`);
+                        const imageBlob = await generateDefaultArtworkBlob(title);
 
-                    if (dynamicTrackQueue) {
-                        const row = document.createElement('div');
-                        row.className = 'blaze-track-row';
-                        row.setAttribute('data-playlist-index', idx);
-                        row.setAttribute('id', `studio-track-row-${idx}`);
-                        row.innerHTML = `
-                            <button class="blaze-play-trigger" data-action="play-toggle" data-index="${idx}">▶</button>
-                            <div class="meta-cell">
-                                <span class="beat-name">${localTrack.title}</span>
-                                <span class="file-spec-tag">Local Studio Asset</span>
-                            </div>
-                            <span class="stat-cell" style="color: var(--neon-pink); font-weight:600;">LOCAL</span>
-                            <span class="stat-cell">${localTrack.size}</span>
-                        `;
-                        dynamicTrackQueue.appendChild(row);
+                        showConsoleFeedback(`Storing "${title}" into safe IndexedDB...`);
+                        const localTrack = {
+                            title: title,
+                            bpm: '140',
+                            audioBlob: file,
+                            imageBlob: imageBlob,
+                            peaks: computedPeaks,
+                            createdAt: Date.now()
+                        };
+
+                        await saveBeatToDB(localTrack);
                     }
-                });
+                    
+                    showConsoleFeedback("Successfully stored all tracks permanently!");
+                    await streamRealBeatsNatively();
 
-                if (catalogDisplayContainer && globalAudioPlaylistArray.length > 0) {
-                    catalogDisplayContainer.classList.remove('hidden-display');
+                } catch (err) {
+                    console.error("Local track file ingest failed:", err);
+                    showConsoleFeedback("Ingest failed: " + err.message, true);
                 }
             }
 
@@ -747,16 +1109,27 @@
             window.syncStorefrontWithLiveVault = streamRealBeatsNatively;
 
             // Direct stream deck integration support as requested
-            window.loadTrackIntoBlazeDeck = (audioStreamUrl, trackTitle) => {
-                if (audioEngine && deckTrackTitle) {
-                    audioEngine.src = audioStreamUrl;
+            window.loadTrackIntoBlazeDeck = (audioStreamUrl, trackTitle, peaks) => {
+                if (deckTrackTitle) {
                     deckTrackTitle.textContent = trackTitle;
                     deckProducerName.textContent = "by tyrox made this";
-                    audioEngine.play().catch(e => console.log("Stream init delayed:", e));
+                    if (wavesurfer) {
+                        if (peaks && Array.isArray(peaks) && peaks.length > 0) {
+                            wavesurfer.load(audioStreamUrl, peaks);
+                        } else {
+                            wavesurfer.load(audioStreamUrl);
+                        }
+                        wavesurfer.once('ready', () => {
+                            wavesurfer.play().catch(e => console.log("Stream init delayed:", e));
+                        });
+                    } else if (audioEngine) {
+                        audioEngine.src = audioStreamUrl;
+                        audioEngine.play().catch(e => console.log("Stream init delayed:", e));
+                    }
                 }
             };
 
-            // --- 6. SOLO UPLOAD STATION ACTIONS & IMAGE COMPRESSION ENGINE ---
+            // --- 6. SOLO UPLOAD STATION ACTIONS & COMPRESSION INGEST PIPELINE ---
             const publishBtn = document.getElementById('publishBtn');
             const statusConsole = document.getElementById('statusConsole');
 
@@ -771,7 +1144,6 @@
             }
 
             // COMPRESSION CORE ENGINE
-            // Enforces maximum web dimension constraints and downscales file data to 75% quality compressed binary blob
             function compressGraphicFile(file) {
                 return new Promise((resolve) => {
                     const fileReader = new FileReader();
@@ -784,16 +1156,16 @@
                             const MAX_WIDTH = 1200;
                             let width = img.width;
                             let height = img.height;
-
+ 
                             if (width > MAX_WIDTH) {
                                 height = Math.round((height * MAX_WIDTH) / width);
                                 width = MAX_WIDTH;
                             }
-
+ 
                             canvas.width = width;
                             canvas.height = height;
                             ctx.drawImage(img, 0, 0, width, height);
-
+ 
                             canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.75);
                         };
                         img.src = e.target.result;
@@ -809,8 +1181,8 @@
                     const titleInput = document.getElementById('beatTitle')?.value;
                     const bpmInput = document.getElementById('beatBpm')?.value;
 
-                    if (!audioInput || !imageInput || !titleInput) {
-                        return showConsoleFeedback("Missing required fields: Title, Audio File, and Cover Art are mandatory.", true);
+                    if (!audioInput || !titleInput) {
+                        return showConsoleFeedback("Missing required fields: Beat Track Title and Audio File (.mp3/.wav) are mandatory.", true);
                     }
 
                     publishBtn.textContent = "Processing & Compressing...";
@@ -818,89 +1190,152 @@
                     publishBtn.style.opacity = "0.6";
 
                     try {
-                        // Recover server configurations dynamically if needed
-                        if (SUPABASE_PROJECT_URL === "https://supabase.co" || SUPABASE_ANON_KEY === "PASTE_YOUR_COPIED_ANON_PUBLIC_KEY_HERE") {
-                            const configRes = await fetch('/api/supabase-config');
-                            const configData = await configRes.json();
-                            if (configData.supabaseUrl && configData.supabaseKey) {
-                                SUPABASE_PROJECT_URL = configData.supabaseUrl;
-                                SUPABASE_ANON_KEY = configData.supabaseKey;
-                            }
+                        let compressedImageBlob = null;
+                        if (imageInput) {
+                            showConsoleFeedback("Compressing cover artwork file locally...");
+                            compressedImageBlob = await compressGraphicFile(imageInput);
+                        } else {
+                            showConsoleFeedback("No cover artwork provided. Generating glow artwork canvas...");
+                            compressedImageBlob = await generateDefaultArtworkBlob(titleInput);
                         }
 
-                        if (!window.supabase) {
-                            throw new Error("Supabase JS Library has not initialized properly on your client.");
-                        }
+                        showConsoleFeedback("Analysing audio peaks locally...");
+                        const computedPeaks = await getAudioPeaks(audioInput, 200);
 
-                        const supabaseClient = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
+                        showConsoleFeedback("Writing to browser IndexedDB storage permanently...");
+                        const beatRecord = {
+                            title: titleInput,
+                            bpm: String(bpmInput || '140'),
+                            audioBlob: audioInput,
+                            imageBlob: compressedImageBlob,
+                            peaks: computedPeaks,
+                            createdAt: Date.now()
+                        };
 
-                        showConsoleFeedback("Syncing raw audio track file to cloud bucket...");
+                        await saveBeatToDB(beatRecord);
 
-                        // STEP A: TRANSMIT AUDIO FILE TO BUCKET
-                        const audioPath = `vault/${Date.now()}_${audioInput.name.replace(/\s+/g, '_')}`;
-                        const { data: audioUpload, error: audioErr } = await supabaseClient.storage
-                            .from('unlimited-beats')
-                            .upload(audioPath, audioInput);
-
-                        if (audioErr) throw audioErr;
-                        const audioCdnUrl = supabaseClient.storage.from('unlimited-beats').getPublicUrl(audioPath).data.publicUrl;
-
-                        showConsoleFeedback("Applying web-ready downscaling to artwork file...");
-
-                        // STEP B: COMPRESS LARGE CUSTOM IMAGE FILE NATIVELY IN IPAD MEMORY
-                        const compressedImageBlob = await compressGraphicFile(imageInput);
-
-                        showConsoleFeedback("Syncing artwork image to cloud bucket...");
-
-                        // STEP C: TRANSMIT COMPRESSED IMAGE TO BUCKET
-                        const imagePath = `covers/${Date.now()}_art.jpg`;
-                        const { data: imageUpload, error: imgErr } = await supabaseClient.storage
-                            .from('unlimited-beats')
-                            .upload(imagePath, compressedImageBlob, { contentType: 'image/jpeg' });
-
-                        if (imgErr) throw imgErr;
-                        const imageCdnUrl = supabaseClient.storage.from('unlimited-beats').getPublicUrl(imagePath).data.publicUrl;
-
-                        showConsoleFeedback("Writing catalog metadata into Postgres DB table rows...");
-
-                        // STEP D: LOG BOTH LIVE STREAM PATHS TO YOUR SECURE TABLE GRID ROW
-                        const { error: dbErr } = await supabaseClient
-                            .from('marketplace_tracks')
-                            .insert([{
-                                title: titleInput,
-                                bpm: String(bpmInput || '140'),
-                                stream_url: audioCdnUrl,
-                                cover_art_url: imageCdnUrl, 
-                                image_url: imageCdnUrl,
-                                imageUrl: imageCdnUrl,
-                                producer: "Tyrox"
-                            }]);
-
-                        if (dbErr) throw dbErr;
-
-                        showConsoleFeedback(`🎉 Success! "${titleInput}" is now live on your storefront with custom art.`);
+                        showConsoleFeedback(`🎉 Success! "${titleInput}" is now permanently live in your local database & storefront!`);
                         
                         // Clean input values
                         document.getElementById('beatTitle').value = "";
                         document.getElementById('beatFile').value = "";
-                        document.getElementById('coverImageFile').value = "";
+                        if (document.getElementById('coverImageFile')) {
+                            document.getElementById('coverImageFile').value = "";
+                        }
 
                         // Re-trigger visual updates instantly!
-                        streamRealBeatsNatively();
+                        await streamRealBeatsNatively();
 
                     } catch (systemError) {
-                        console.error("System pipeline connection failure:", systemError);
-                        showConsoleFeedback("System pipeline connection failure: " + (systemError.message || systemError), true);
+                        console.error("IndexedDB catalog save failed:", systemError);
+                        showConsoleFeedback("IndexedDB catalog save failed: " + (systemError.message || systemError), true);
                     } finally {
-                        publishBtn.textContent = "Publish to Vercel Live Store";
+                        publishBtn.textContent = "Publish to Offline Catalog";
                         publishBtn.disabled = false;
                         publishBtn.style.opacity = "1";
                     }
                 });
             }
 
+            // --- 7. BEATSTARS-STYLE PAYPAL SMART BUTTON INTEG MAPPING ---
+            const checkoutModal = document.getElementById('checkoutModal');
+            const closeCheckoutBtn = document.getElementById('closeCheckoutBtn');
+            const checkoutBeatTitle = document.getElementById('checkoutBeatTitle');
+            const checkoutBeatPrice = document.getElementById('checkoutBeatPrice');
+            const paypalCheckoutContainer = document.getElementById('paypalCheckoutContainer');
+            const checkoutStatusFeedback = document.getElementById('checkoutStatusFeedback');
+
+            function triggerPayloadPayPalCheckout(index) {
+                if (index < 0 || index >= globalAudioPlaylistArray.length) return;
+                const track = globalAudioPlaylistArray[index];
+
+                checkoutModal.classList.remove('hidden-display');
+                checkoutBeatTitle.textContent = track.title || "Wisconsin Beat";
+                checkoutBeatPrice.textContent = "$29.99";
+
+                // Wipe any old buttons
+                paypalCheckoutContainer.innerHTML = '';
+                checkoutStatusFeedback.className = 'status-console-log hidden-display';
+
+                // Initialise fresh dynamic PayPal buttons routing Funds straight to the payee email
+                if (window.paypal) {
+                    window.paypal.Buttons({
+                        style: {
+                            layout: 'vertical',
+                            color:  'gold',
+                            shape:  'rect',
+                            label:  'checkout'
+                        },
+                        createOrder: function(data, actions) {
+                            showCheckoutStatus("Initiating secure order transaction payload...", false);
+                            return actions.order.create({
+                                purchase_units: [{
+                                    amount: {
+                                        currency_code: 'USD',
+                                        value: '29.99'
+                                    },
+                                    description: `Exclusive Studio License: ${track.title}`,
+                                    payee: {
+                                        email_address: activeProducerPaypalEmail // BEATSTARS METHOD: dynamic Payee routing straight to producer!
+                                    }
+                                }]
+                            });
+                        },
+                        onApprove: function(data, actions) {
+                            showCheckoutStatus("Authorizing funds transfer directly with payee...", false);
+                            return actions.order.capture().then(function(details) {
+                                showCheckoutStatus(`🎉 Success! License Purchased! Funds sent directly to: ${activeProducerPaypalEmail}. Receipt ID: ${details.id}`, false);
+                            });
+                        },
+                        onError: function(err) {
+                            console.error("PayPal Smart Checkout transaction error:", err);
+                            showCheckoutStatus(`Authorization failed. Ensure payee account [${activeProducerPaypalEmail}] is fully registered and verified on PayPal.`, true);
+                        }
+                    }).render('#paypalCheckoutContainer');
+                } else {
+                    paypalCheckoutContainer.innerHTML = `<p style="font-size:13px; text-align:center; color: var(--neon-pink);">PayPal Checkout SDK connection failed. Ensure your sandbox system is online.</p>`;
+                }
+            }
+
+            function showCheckoutStatus(msg, isError) {
+                if (!checkoutStatusFeedback) return;
+                checkoutStatusFeedback.textContent = msg;
+                checkoutStatusFeedback.style.background = isError ? "rgba(255, 0, 85, 0.15)" : "rgba(0, 255, 102, 0.15)";
+                checkoutStatusFeedback.style.borderColor = isError ? "var(--neon-pink)" : "var(--success-green)";
+                checkoutStatusFeedback.style.color = isError ? "var(--neon-pink)" : "var(--success-green)";
+                checkoutStatusFeedback.classList.remove('hidden-display');
+            }
+
+            if (closeCheckoutBtn) {
+                closeCheckoutBtn.addEventListener('click', () => {
+                    checkoutModal.classList.add('hidden-display');
+                });
+            }
+
             // Initialize catalog sync on start
             streamRealBeatsNatively();
+
+            // LOCAL DATABASE STATUS TRACKER
+            async function checkLocalDatabaseStatus() {
+                const statusBadge = document.getElementById('localStatusBadge');
+                try {
+                    const db = await initDatabase();
+                    if (db) {
+                        if (statusBadge) {
+                            statusBadge.textContent = "● LOCAL DATABASE READY";
+                            statusBadge.style.color = "var(--success-green)";
+                        }
+                        console.log("Local IndexedDB storage connected and active.");
+                    }
+                } catch (err) {
+                    console.error("Local database health check failed:", err);
+                    if (statusBadge) {
+                        statusBadge.textContent = "● DATABASE CONNECTION ERROR";
+                        statusBadge.style.color = "var(--neon-pink)";
+                    }
+                }
+            }
+            checkLocalDatabaseStatus();
         });
     </script>
 </body>

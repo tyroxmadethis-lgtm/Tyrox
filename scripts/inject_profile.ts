@@ -1,4 +1,4 @@
-import { User, connectMongoose } from '../lib/mongooseModels';
+import { User } from '../lib/localDb';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -18,37 +18,26 @@ const socialLinks = {
 async function injectProfile() {
   console.log("Starting backend profile data injection...");
 
-  // 1. Inject into Mongoose/MongoDB (if MONGODB_URI is available)
+  // 1. Inject into local JSON database (users.json)
   try {
-    if (process.env.MONGODB_URI) {
-      await connectMongoose();
-      console.log("Connected to MongoDB for profile update...");
-      
-      const updatePayload = {
-        "socialLinks.tiktok": socialLinks.tiktok,
-        "socialLinks.instagram": socialLinks.instagram,
-        "socialLinks.twitter": socialLinks.twitter,
-        "socialLinks.youtube": socialLinks.youtube,
-        // Since we want to ensure bio field is updated in User
-        "bio": bioDescription,
-        // Also support any top-level key matching
-        "bioDescription": bioDescription
-      };
+    const updatePayload = {
+      socialLinks: { ...socialLinks },
+      "socialLinks.tiktok": socialLinks.tiktok,
+      "socialLinks.instagram": socialLinks.instagram,
+      "socialLinks.twitter": socialLinks.twitter,
+      "socialLinks.youtube": socialLinks.youtube,
+      bio: bioDescription,
+      bioDescription: bioDescription
+    };
 
-      const result = await User.updateOne(
-        { username: "tyrox" },
-        { 
-          $set: updatePayload 
-        },
-        { upsert: true }
-      );
+    const result = await User.updateOne(
+      { username: "tyrox" },
+      updatePayload
+    );
 
-      console.log(`MongoDB profile update database results:`, result);
-    } else {
-      console.log("No MONGODB_URI found; skipping live Mongo database update.");
-    }
-  } catch (mongoError: any) {
-    console.error("Error during MongoDB profile update:", mongoError.message);
+    console.log(`Local JSON profile update results:`, result);
+  } catch (localError: any) {
+    console.error("Error during local JSON profile update:", localError.message);
   }
 
   // 2. Inject into high-fidelity fallback local_users.json

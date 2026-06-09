@@ -329,6 +329,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 sales: existing ? existing.sales : 0,
                 streams: existing ? (existing.streams !== undefined ? existing.streams : existing.plays) : 0,
                 plaque_awarded: existing ? !!existing.plaque_awarded : false,
+                peaks: beat.peaks || null,
                 createdAt: beat.createdAt || new Date().toISOString().split('T')[0]
               };
             });
