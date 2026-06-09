@@ -389,8 +389,8 @@
 
                             <!-- AUDIO TRANSMISSION LINK -->
                             <div class="form-group">
-                                <label>Select Audio Asset (.mp3 / .wav)</label>
-                                <input type="file" id="beatFile" accept="audio/*" style="color: #62627a;">
+                                <label>Select Audio Asset (.mp3 / .wav / .zip / .rar)</label>
+                                <input type="file" id="beat-upload" accept="audio/*,.zip,.rar" style="color: #62627a;">
                             </div>
 
                             <!-- NEW GRAPHIC TRANSMISSION LINK -->
@@ -411,9 +411,9 @@
                             <div class="upload-drop-zone" id="dropZone" onclick="document.getElementById('beatFileInput').click()">
                                 <div class="upload-icon-graphic">📤</div>
                                 <h4>Drag & Drop Your Trap Beat Here</h4>
-                                <p>Supports high-fidelity MP3, WAV, or AIFF audio tracks for local session playback</p>
+                                <p>Supports high-fidelity MP3, WAV, AIFF, or ZIP/RAR stems packages for local session playback</p>
                                 <button class="browse-files-btn">Browse Local Files</button>
-                                <input type="file" id="beatFileInput" accept="audio/*" hidden>
+                                <input type="file" id="beatFileInput" accept="audio/*,.zip,.rar" hidden>
                             </div>
                         </div>
 
@@ -1074,11 +1074,20 @@
                 showConsoleFeedback("Ingesting tracks permanently...");
                 try {
                     for (const file of fileArray) {
-                        if (!file.type.startsWith('audio/')) continue;
+                        const lowercaseName = file.name.toLowerCase();
+                        const isZip = lowercaseName.endsWith('.zip') || lowercaseName.endsWith('.rar');
+                        if (!file.type.startsWith('audio/') && !isZip) continue;
 
                         const title = file.name.replace(/\.[^/.]+$/, "");
-                        showConsoleFeedback(`Analyzing peaks for "${title}"...`);
-                        const computedPeaks = await getAudioPeaks(file, 200);
+                        
+                        let computedPeaks = [];
+                        if (!isZip) {
+                            showConsoleFeedback(`Analyzing peaks for "${title}"...`);
+                            computedPeaks = await getAudioPeaks(file, 200);
+                        } else {
+                            showConsoleFeedback(`Ingesting zip bundle for "${title}"...`);
+                            computedPeaks = Array.from({length: 200}, () => parseFloat((Math.random() * 0.4 + 0.1).toFixed(4)));
+                        }
 
                         showConsoleFeedback(`Generating custom artwork canvas for "${title}"...`);
                         const imageBlob = await generateDefaultArtworkBlob(title);
@@ -1176,16 +1185,16 @@
 
             if (publishBtn) {
                 publishBtn.addEventListener('click', async () => {
-                    const audioInput = document.getElementById('beatFile')?.files[0];
+                    const audioInput = document.getElementById('beat-upload')?.files[0] || document.getElementById('beatFile')?.files[0];
                     const imageInput = document.getElementById('coverImageFile')?.files[0];
                     const titleInput = document.getElementById('beatTitle')?.value;
                     const bpmInput = document.getElementById('beatBpm')?.value;
 
                     if (!audioInput || !titleInput) {
-                        return showConsoleFeedback("Missing required fields: Beat Track Title and Audio File (.mp3/.wav) are mandatory.", true);
+                        return showConsoleFeedback("Missing required fields: Beat Track Title and Audio/Zip File are mandatory.", true);
                     }
 
-                    publishBtn.textContent = "Processing & Compressing...";
+                    publishBtn.textContent = "Processing & Saving...";
                     publishBtn.disabled = true;
                     publishBtn.style.opacity = "0.6";
 
@@ -1199,8 +1208,17 @@
                             compressedImageBlob = await generateDefaultArtworkBlob(titleInput);
                         }
 
-                        showConsoleFeedback("Analysing audio peaks locally...");
-                        const computedPeaks = await getAudioPeaks(audioInput, 200);
+                        const audioName = audioInput.name.toLowerCase();
+                        const isZip = audioName.endsWith('.zip') || audioName.endsWith('.rar');
+
+                        let computedPeaks = [];
+                        if (!isZip) {
+                            showConsoleFeedback("Analysing audio peaks locally...");
+                            computedPeaks = await getAudioPeaks(audioInput, 200);
+                        } else {
+                            showConsoleFeedback("Bypassing audio peak parsing for ZIP/RAR stems bundle...");
+                            computedPeaks = Array.from({length: 200}, () => parseFloat((Math.random() * 0.4 + 0.1).toFixed(4)));
+                        }
 
                         showConsoleFeedback("Writing to browser IndexedDB storage permanently...");
                         const beatRecord = {
@@ -1218,7 +1236,8 @@
                         
                         // Clean input values
                         document.getElementById('beatTitle').value = "";
-                        document.getElementById('beatFile').value = "";
+                        if (document.getElementById('beat-upload')) document.getElementById('beat-upload').value = "";
+                        if (document.getElementById('beatFile')) document.getElementById('beatFile').value = "";
                         if (document.getElementById('coverImageFile')) {
                             document.getElementById('coverImageFile').value = "";
                         }
