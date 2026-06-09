@@ -29,6 +29,7 @@ export interface Track {
   streams?: number;
   plaque_awarded?: boolean;
   peaks?: number[];
+  payhipUrl?: string;
 }
 
 export interface LicenseOption {

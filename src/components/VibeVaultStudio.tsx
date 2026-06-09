@@ -8,6 +8,7 @@ import { useStore } from '../context/StoreContext';
 import { Track, Coupon, LicensingContract } from '../types';
 import { DollarSign, BarChart3, Radio, FileText, Percent, Globe, ShieldAlert, Cpu, CircleHelp, Trash2, Edit2, Plus, Sparkles, Check, RefreshCw, Send, CheckCircle, ExternalLink, Copy, Shield, Image as ImageIcon, Settings, Music, Sliders } from 'lucide-react';
 import { UltimateBeatUploader } from './UltimateBeatUploader';
+import BeatTracklist from './BeatTracklist';
 import AudioTranscoder from './AudioTranscoder';
 import AudioSoundMatcher from './AudioSoundMatcher';
 import DashboardSettings from './DashboardSettings';
@@ -214,13 +215,8 @@ export const VibeVaultStudio: React.FC = () => {
             <div className="space-y-1">
               {[
                 { id: 'tracks', label: 'Active Tracks', icon: Radio },
-                { id: 'ai-uploader', label: 'AI Beat Uploader', icon: Sparkles },
-                { id: 'cover-optimizer', label: 'Cover Art Optimizer', icon: ImageIcon },
-                { id: 'transcoder', label: 'Audio Transcoder', icon: Music },
-                { id: 'sound-matcher', label: 'Audio Sound Matcher', icon: Sliders },
                 { id: 'owner-core', label: 'Owner Core Console', icon: Shield },
                 { id: 'contracts', label: 'Licensing Contracts', icon: FileText },
-                { id: 'cloud-triggers', label: 'Cloud Storage Hook', icon: Cpu },
               ].map(item => {
                 const isActive = adminSection === item.id;
                 return (
@@ -243,7 +239,7 @@ export const VibeVaultStudio: React.FC = () => {
             <div className="space-y-1">
               {[
                 { id: 'portal', label: 'Publishing Portal', icon: Globe },
-                { id: 'paypal', label: 'PayPal Processing', icon: DollarSign },
+                { id: 'payhip', label: 'Payhip Sync Center', icon: RefreshCw },
                 { id: 'promotions', label: 'Promote & Discounts', icon: Percent },
               ].map(item => {
                 const isActive = adminSection === item.id;
@@ -1059,6 +1055,11 @@ export const VibeVaultStudio: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Payhip Sync Center */}
+        {adminSection === 'payhip' && (
+          <BeatTracklist />
         )}
 
         {/* PayPal Processing Admin setup */}

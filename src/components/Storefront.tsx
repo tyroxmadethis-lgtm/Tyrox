@@ -1268,18 +1268,38 @@ export const Storefront: React.FC<StorefrontProps> = ({
                               {track.tags.join(", ")}
                             </span>
 
-                            {/* Buy Licensing Button - clicking on this opens our beautiful licensing choices modal */}
+                             {/* Buy Licensing Button - clicking on this opens our beautiful licensing choices modal */}
                             <div className="text-right">
-                              <button
-                                className="purchase-action-btn animate-scaleUp"
-                                onClick={() => onOpenLicenseModal(track)}
-                              >
-                                + $
-                                {(track.price !== undefined
-                                  ? track.price
-                                  : 29.99
-                                ).toFixed(2)}
-                              </button>
+                              {track.payhipUrl ? (
+                                <a
+                                  href={track.payhipUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="purchase-action-btn bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 hover:shadow-[0_0_10px_rgba(168,85,247,0.4)] animate-scaleUp inline-flex items-center gap-1.5 justify-center py-2 px-3 text-xs font-bold tracking-tight rounded-lg text-white"
+                                  style={{ textDecoration: 'none' }}
+                                >
+                                  <span>Payhip Shop</span>
+                                  <span className="opacity-40">•</span>
+                                  <span>
+                                    $
+                                    {(track.price !== undefined
+                                      ? track.price
+                                      : 29.99
+                                    ).toFixed(2)}
+                                  </span>
+                                </a>
+                              ) : (
+                                <button
+                                  className="purchase-action-btn animate-scaleUp"
+                                  onClick={() => onOpenLicenseModal(track)}
+                                >
+                                  + $
+                                  {(track.price !== undefined
+                                    ? track.price
+                                    : 29.99
+                                  ).toFixed(2)}
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
