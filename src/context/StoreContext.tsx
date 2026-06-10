@@ -437,7 +437,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return t;
       }));
       
-      AudioSynth.play(track.id, track.bpm, track.key);
+      AudioSynth.play(track.id, track.bpm, track.key, track.audioUrl);
     }
   };
 

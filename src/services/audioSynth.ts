@@ -83,7 +83,7 @@ class AudioSynthService {
     }
   }
 
-  public async play(trackId: string, bpm = 120, key = 'Am') {
+  public async play(trackId: string, bpm = 120, key = 'Am', audioUrl?: string) {
     this.init();
     if (!this.ctx) return;
     
@@ -166,20 +166,28 @@ class AudioSynthService {
     }
 
     try {
-      console.log(`Initiating stream transfer for track ID: ${trackId}`);
-      const streamResponse = await fetch(`/api/stream-beat/${trackId}`);
-      if (!streamResponse.ok) {
-        throw new Error("Target audio file path corrupted or offline.");
+      if (audioUrl) {
+        console.log(`Streaming directly from custom URL: ${audioUrl}`);
+        this.player.src = audioUrl;
+        this.player.load();
+        this.isStreamingMode = true;
+        await this.player.play();
+      } else {
+        console.log(`Initiating stream transfer for track ID: ${trackId}`);
+        const streamResponse = await fetch(`/api/stream-beat/${trackId}`);
+        if (!streamResponse.ok) {
+          throw new Error("Target audio file path corrupted or offline.");
+        }
+
+        const rawAudioBlob = await streamResponse.blob();
+        this.activeObjectUrl = URL.createObjectURL(rawAudioBlob);
+
+        this.player.src = this.activeObjectUrl;
+        this.player.load();
+        this.isStreamingMode = true;
+
+        await this.player.play();
       }
-
-      const rawAudioBlob = await streamResponse.blob();
-      this.activeObjectUrl = URL.createObjectURL(rawAudioBlob);
-
-      this.player.src = this.activeObjectUrl;
-      this.player.load();
-      this.isStreamingMode = true;
-
-      await this.player.play();
 
       if (playBtn) {
         playBtn.innerText = "Playing Pristine Beat";

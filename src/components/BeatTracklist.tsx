@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Track } from '../types';
+import AutomatedTracklistStore from './AutomatedTracklistStore';
 import { 
   Play, 
   Pause, 
@@ -35,8 +36,8 @@ export default function BeatTracklist() {
   const { addTrack, tracks, playTrack, isPlaying, currentTrack } = useStore();
 
   // Load persistence credentials
-  const [apiToken, setApiToken] = useState(() => localStorage.getItem('vv_apify_token') || 'YOUR_REAL_APIFY_TOKEN');
-  const [payhipUsername, setPayhipUsername] = useState(() => localStorage.getItem('vv_payhip_username') || 'YOUR_PAYHIP_USERNAME');
+  const [apiToken, setApiToken] = useState(() => localStorage.getItem('vv_apify_token') || (import.meta as any).env.VITE_APIFY_TOKEN || 'YOUR_REAL_APIFY_TOKEN');
+  const [payhipUsername, setPayhipUsername] = useState(() => localStorage.getItem('vv_payhip_username') || 'tyroxmadethis');
 
   // Control panel toggle
   const [showConfig, setShowConfig] = useState(false);
@@ -91,69 +92,49 @@ export default function BeatTracklist() {
     "🔑 Set your Apify endpoint credentials using the panel above."
   ]);
 
-  // Initial fallbacks matching user requested JSON schema
-  const fallbackBeats: PayhipBeat[] = [
-    {
-      id: 1,
-      title: "Midnight Madness",
-      duration: "03:15",
-      bpm: "140",
-      tags: ["Acoustic Trap", "Studio Sync"],
-      price: "29.99",
-      artworkUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=150&auto=format&fit=crop",
-      previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      payhipUrl: "https://payhip.com"
-    },
-    {
-      id: 2,
-      title: "808 Eclipse",
-      duration: "02:58",
-      bpm: "130",
-      tags: ["Dark Synth", "Sub Bass"],
-      price: "39.99",
-      artworkUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=150&auto=format&fit=crop",
-      previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-      payhipUrl: "https://payhip.com"
-    }
-  ];
-
-  // Load fallback tracks initially
+  // Load live scraper feed automatically on mount (on autopilot)
   useEffect(() => {
-    setBeats(fallbackBeats);
+    autoFetchPayhipProducts();
   }, []);
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   };
 
-  // Synchronous scraper actor trigger logic
-  const fetchPayhipBeats = async () => {
+  // Synchronous scraper actor trigger query loop using Apify dataset endpoint on autopilot
+  const autoFetchPayhipProducts = async () => {
     setLoading(true);
     addLog(`🔄 Initiating product inventory scraping cycle for creator: ${payhipUsername}...`);
     
-    // Save to local storage for persistent experience
+    // Save credentials to local storage as requested
     localStorage.setItem('vv_apify_token', apiToken);
     localStorage.setItem('vv_payhip_username', payhipUsername);
 
     try {
       addLog("🚀 Dispatching payload to Apify endpoint router path...");
       
-      if (apiToken === 'YOUR_REAL_APIFY_TOKEN' || payhipUsername === 'YOUR_PAYHIP_USERNAME') {
-        addLog("📋 [DEMO MODE] Pending real credentials. Generating fallback products locally...");
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setBeats(fallbackBeats);
-        addLog(`✨ API Handshake complete. Ingested ${fallbackBeats.length} tracks into preview list successfully.`);
+      const effectiveToken = apiToken && apiToken !== 'YOUR_REAL_APIFY_TOKEN'
+        ? apiToken
+        : ((import.meta as any).env.VITE_APIFY_TOKEN || 'YOUR_REAL_APIFY_TOKEN');
+
+      const effectiveUsername = payhipUsername && payhipUsername !== 'YOUR_PAYHIP_USERNAME'
+        ? payhipUsername
+        : 'tyroxmadethis';
+
+      if (effectiveToken === 'YOUR_REAL_APIFY_TOKEN' || effectiveUsername === 'YOUR_PAYHIP_USERNAME') {
+        addLog("📋 [AUTOPILOT] Inactive credentials. Please configure real Apify token to scrape Payhip.");
+        setBeats([]);
       } else {
         // Construct requested Apify synchronous actor dataset retrieval endpoint
-        const urlToken = apiToken.startsWith("http")
-          ? apiToken
-          : `https://api.apify.com/v2/acts/vsekar91~payhip-creator-scraper/run-sync-get-dataset-items?token=${apiToken}`;
+        const urlToken = effectiveToken.startsWith("http")
+          ? effectiveToken
+          : `https://api.apify.com/v2/acts/vsekar91~payhip-creator-scraper/run-sync-get-dataset-items?token=${effectiveToken}`;
         
         addLog(`📡 Dispatched POST scraper trigger to synchronous endpoint: ${urlToken}`);
         const response = await fetch(urlToken, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ creators: [payhipUsername] })
+          body: JSON.stringify({ creators: [effectiveUsername] })
         });
         
         if (!response.ok) {
@@ -164,29 +145,32 @@ export default function BeatTracklist() {
         
         if (Array.isArray(data)) {
           // Format parsed properties
-          const formatted: PayhipBeat[] = data.map((b: any, idx: number) => ({
-            id: b.id || `scraped-${idx}`,
-            title: b.title || b.name || "Scraped Beat",
-            duration: b.duration || b.metadata?.duration || "03:15",
-            bpm: b.bpm || b.metadata?.bpm || "140",
-            tags: b.tags || (b.category ? [b.category] : ["Payhip", "Syndicated"]),
-            price: b.price || b.amount || b.priceLabel || "29.99",
-            artworkUrl: b.artworkUrl || b.imageUrl || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=150&auto=format&fit=crop",
-            previewUrl: b.previewUrl || b.audioUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-            payhipUrl: b.payhipUrl || b.url || "https://payhip.com"
-          }));
+          const formatted: PayhipBeat[] = data.map((b: any, idx: number) => {
+            const rawUrl = b.payhipUrl || b.url || "https://payhip.com";
+            // Map standard landing '/b/' paths over to '/co/' format checkout URLs
+            const formattedPayhipUrl = typeof rawUrl === 'string' ? rawUrl.replace('/b/', '/co/') : rawUrl;
+            return {
+              id: b.id || `scraped-${idx}`,
+              title: b.title || b.name || "Scraped Beat",
+              duration: b.duration || b.metadata?.duration || "03:15",
+              bpm: b.bpm || b.metadata?.bpm || "140",
+              tags: b.tags || (b.category ? [b.category] : ["Payhip", "Syndicated"]),
+              price: b.price || b.amount || b.priceLabel || "29.99",
+              artworkUrl: b.artworkUrl || b.imageUrl || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=150&auto=format&fit=crop",
+              previewUrl: b.previewUrl || b.audioUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+              payhipUrl: formattedPayhipUrl
+            };
+          });
           setBeats(formatted);
           addLog(`🎉 Successfully acquired ${formatted.length} live Payhip products!`);
         } else {
-          addLog("📥 Scraper actor job started on Apify clusters. Simulating instant data resolution...");
-          await new Promise(resolve => setTimeout(resolve, 1200));
-          setBeats(fallbackBeats);
-          addLog(`✨ Synced fallback products successfully.`);
+          addLog("📥 Clean data sync completed, empty result returned.");
+          setBeats([]);
         }
       }
     } catch (err: any) {
       addLog(`⚠️ Connection Refused: ${err.message || String(err)}`);
-      addLog("💡 Tip: Double check your API token format or network route.");
+      setBeats([]);
     } finally {
       setLoading(false);
     }
@@ -266,6 +250,13 @@ export default function BeatTracklist() {
     playTrack(dynamicTrack);
   };
 
+  const triggerBypassCheckout = (payhipUrl: string) => {
+    // AUTOMATIC BYPASS: Mutates standard sales links to direct purchase popups
+    // This transforms ://payhip.com into ://payhip.com automatically
+    const bypassUrl = (payhipUrl || 'https://payhip.com').replace('/b/', '/co/');
+    window.open(bypassUrl, '_blank', 'width=500,height=600');
+  };
+
   return (
     <div className="w-full space-y-4 animate-fadeIn font-sans text-white">
       {/* Sleek Horizontal Controller Strip replacing top banners */}
@@ -336,7 +327,7 @@ export default function BeatTracklist() {
 
           <div className="flex justify-between items-center pt-1 gap-4">
             <button
-              onClick={fetchPayhipBeats}
+              onClick={autoFetchPayhipProducts}
               disabled={loading}
               className="px-4 py-2 bg-purple-650 hover:bg-purple-600 border border-purple-500/25 text-white font-sans font-bold text-xs uppercase tracking-wider rounded transition-all flex items-center gap-2 cursor-pointer select-none active:scale-95 disabled:opacity-50"
             >
@@ -475,17 +466,15 @@ export default function BeatTracklist() {
                     </button>
 
                     {/* Secure Price Checkout Button */}
-                    <a 
-                      href={beat.payhipUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 px-4 py-2 rounded font-bold text-xs bg-zinc-900 text-zinc-200 border border-zinc-800 hover:bg-purple-600 hover:text-white hover:border-purple-500 transition-all shadow-md active:scale-95"
+                    <button 
+                      onClick={() => triggerBypassCheckout(beat.payhipUrl)}
+                      className="flex items-center gap-1 px-4 py-2 rounded font-bold text-xs bg-zinc-900 text-zinc-200 border border-zinc-800 hover:bg-purple-600 hover:text-white hover:border-purple-500 transition-all shadow-md active:scale-95 cursor-pointer select-none"
                     >
                       <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2.5">
                         <path d="M12 5v14M5 12h14"/>
                       </svg>
                       ${beat.price}
-                    </a>
+                    </button>
                   </div>
 
                 </div>
@@ -493,6 +482,11 @@ export default function BeatTracklist() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Embedded Real-time Autopilot Storefront */}
+      <div className="pt-6 border-t border-zinc-900/60 mt-10">
+        <AutomatedTracklistStore />
       </div>
     </div>
   );
